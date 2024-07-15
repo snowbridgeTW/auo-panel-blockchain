@@ -1,0 +1,28 @@
+blockchains:
+  lease-contract:
+    module: main
+    config:
+      txqueuecapacity: 2500
+      query_cache_ttl_seconds: 0
+      max_block_future_time: 10000
+      historic_brid: x"99837b8a141ecf62329b91a951d5dd716cae0504ffb4af8f81ebda04e2fb1ba2"
+      signers: 
+        - x"02C86E998A0CD3E6FC1FE1B571CCCA60A59D8A3C1C6AF7D9446C25489C681F09F3"
+        - x"0213DF1E0CCC65DB0BC34AEBC317F304B17868978EAFC873C637C58ECBB04DAB3C"
+        - x"038FDE72308A4297F220C48D8ECE3147905F068EFE1908E51D5A25ADBA49A0652A"
+        - x"03FEB85B59FADDAA7BD64E81CC2F57473EB220ABEA32A9398C65C0C06FBDEF3290"
+compile:
+  rellVersion: 0.13.4
+  source: src
+  target: build
+database:
+  password: postchain
+  username: postchain
+  database: postchain
+  host: localhost
+  logSqlErrors: true
+  schema: schema_lease_contract
+  driver: org.postgresql.Driver
+test:
+  modules:
+    - test
