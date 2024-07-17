@@ -1,0 +1,42 @@
+module;
+
+enum roles {
+    auo, // mint asset、xfer asset、event log
+    auoInventoryTcon, auoBurnTcon,
+    auoInventoryBLU, auoBurnBLU,
+    auoInventoryFHDCell, auoBurnFHDCell,
+    auoInventoryQHDCell, auoBurnQHDCell,
+    auoInventoryUHDCell, auoBurnUHDCell,
+    obher, // xfer asset、event log
+    oherOPInventoryTcon, oherOPBurnTcon,
+    oherOPInventoryBLU, oherOPBurnBLU,
+    oherOPInventoryFHDCell, oherOPBurnFHDCell,
+    oherOPInventoryQHDCell, oherOPBurnQHDCell,
+    oherOPInventoryUHDCell, oherOPBurnUHDCell,
+    channel, // xfer asset、event log
+    channelOPInventoryTcon, channelOPBurnTcon,
+    channelOPInventoryBLU, channelOPBurnBLU,
+    channelOPInventoryFHDCell, channelOPBurnFHDCell,
+    channelOPInventoryQHDCell, channelOPBurnQHDCell,
+    channelOPInventoryUHDCell, channelOPBurnUHDCell,
+    wallet // event log
+}
+
+entity address {
+    key id: byte_array; // pubkey.
+}
+
+entity address_meta {
+    index address: address;
+    mutable desc: text = '';
+    role: roles;
+}
+
+operation register (pubkey, role: integer) {
+    require(address @?{.id == pubkey} == null, 'Address already registered');
+    val acc = create address (pubkey);
+    create address_meta(
+        address = acc,
+        role = roles.value(role)
+    );
+}

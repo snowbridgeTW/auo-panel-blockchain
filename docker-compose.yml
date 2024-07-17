@@ -8,7 +8,7 @@ services:
       postchain-mainnet:
         ipv4_address: 172.31.0.4
     volumes:
-      - /Users/sb-mac-02/docker/20240704-sql-bak/node0:/var/lib/postgresql/data
+      - /Users/sb-mac-02/docker/data/node0:/var/lib/postgresql/data
     environment:
       - POSTGRES_INITDB_ARGS=--lc-collate=c.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF-8
       - POSTGRES_USER=postchain
@@ -29,7 +29,7 @@ services:
       postchain-mainnet:
         ipv4_address: 172.31.0.5
     volumes:
-      - /Users/sb-mac-02/docker/20240704-sql-bak/node1:/var/lib/postgresql/data
+      - /Users/sb-mac-02/docker/data/node1:/var/lib/postgresql/data
     environment:
       - POSTGRES_INITDB_ARGS=--lc-collate=c.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF-8
       - POSTGRES_USER=postchain
@@ -50,7 +50,7 @@ services:
       postchain-mainnet:
         ipv4_address: 172.31.0.6
     volumes:
-      - /Users/sb-mac-02/docker/20240704-sql-bak/node2:/var/lib/postgresql/data
+      - /Users/sb-mac-02/docker/data/node2:/var/lib/postgresql/data
     environment:
       - POSTGRES_INITDB_ARGS=--lc-collate=c.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF-8
       - POSTGRES_USER=postchain
@@ -71,7 +71,7 @@ services:
       postchain-mainnet:
         ipv4_address: 172.31.0.7
     volumes:
-      - /Users/sb-mac-02/docker/20240704-sql-bak/node3:/var/lib/postgresql/data
+      - /Users/sb-mac-02/docker/data/node3:/var/lib/postgresql/data
     environment:
       - POSTGRES_INITDB_ARGS=--lc-collate=c.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF-8
       - POSTGRES_USER=postchain
@@ -96,7 +96,7 @@ services:
       - "7750:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/lease-contract-v7.xml -np /usr/app/conf/node0.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node0.properties
     restart: always
     logging:
       driver: "json-file"
@@ -115,7 +115,7 @@ services:
       - "7751:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/lease-contract-v7.xml -np /usr/app/conf/node1.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node1.properties
     restart: always
     logging:
       driver: "json-file"
@@ -134,7 +134,7 @@ services:
       - "7752:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/lease-contract-v7.xml -np /usr/app/conf/node2.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node2.properties
     restart: always
     logging:
       driver: "json-file"
@@ -153,7 +153,7 @@ services:
       - "7753:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/lease-contract-v7.xml -np /usr/app/conf/node3.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node3.properties
     restart: always
     logging:
       driver: "json-file"

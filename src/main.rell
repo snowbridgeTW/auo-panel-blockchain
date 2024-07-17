@@ -1,0 +1,9 @@
+module;
+
+@mount('auoPanelToken')
+namespace auoPanelToken {
+    // import erc20: ^.erc20;
+    // import erc721: ^.erc721;
+    import erc1155: ^.erc1155;
+    import account: ^.account;
+}

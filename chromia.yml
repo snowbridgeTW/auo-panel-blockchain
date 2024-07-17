@@ -1,11 +1,11 @@
 blockchains:
-  lease-contract:
+  auo-contract:
     module: main
     config:
       txqueuecapacity: 2500
       query_cache_ttl_seconds: 0
       max_block_future_time: 10000
-      historic_brid: x"99837b8a141ecf62329b91a951d5dd716cae0504ffb4af8f81ebda04e2fb1ba2"
+      # historic_brid: x"99837b8a141ecf62329b91a951d5dd716cae0504ffb4af8f81ebda04e2fb1ba2"
       signers: 
         - x"02C86E998A0CD3E6FC1FE1B571CCCA60A59D8A3C1C6AF7D9446C25489C681F09F3"
         - x"0213DF1E0CCC65DB0BC34AEBC317F304B17868978EAFC873C637C58ECBB04DAB3C"
@@ -21,7 +21,7 @@ database:
   database: postchain
   host: localhost
   logSqlErrors: true
-  schema: schema_lease_contract
+  schema: schema_auo_contract
   driver: org.postgresql.Driver
 test:
   modules:
