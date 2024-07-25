@@ -2,43 +2,13 @@ module;
 
 enum roles {
     AUO, // mint asset、xfer asset、event log
-    auoInventoryTcon,
-    auoBurnTcon,
-    auoInventoryBLU,
-    auoBurnBLU,
-    auoInventoryFHDCell,
-    auoBurnFHDCell,
-    auoInventoryQHDCell,
-    auoBurnQHDCell,
-    auoInventoryUHDCell,
-    auoBurnUHDCell,
     OTHER, // xfer asset、event log
-    otherOPInventoryTcon,
-    otherOPBurnTcon,
-    otherOPInventoryBLU,
-    otherOPBurnBLU,
-    otherOPInventoryFHDCell,
-    otherOPBurnFHDCell,
-    otherOPInventoryQHDCell,
-    otherOPBurnQHDCell,
-    otherOPInventoryUHDCell,
-    otherOPBurnUHDCell,
     CHANNEL, // xfer asset、event log
-    channelOPInventoryTcon,
-    channelOPBurnTcon,
-    channelOPInventoryBLU,
-    channelOPBurnBLU,
-    channelOPInventoryFHDCell,
-    channelOPBurnFHDCell,
-    channelOPInventoryQHDCell,
-    channelOPBurnQHDCell,
-    channelOPInventoryUHDCell,
-    channelOPBurnUHDCell,
     WALLET // event log
 }
 
 entity address {
-    key id: byte_array; // pubkey.
+    key id: byte_array;
 }
 
 entity address_meta {
@@ -46,9 +16,23 @@ entity address_meta {
     index address: address;
     mutable desc: text = '';
     role: roles;
+    trashed: boolean = false;
     created_time: timestamp = op_context.last_block_time;
     block_height: integer = op_context.block_height;
     index transaction: transaction = op_context.transaction;
+}
+
+function checkAddress(targetAddress: byte_array) {
+    require(
+        address @? { .id == targetAddress } != null,
+        "Contract[address: " + targetAddress.to_hex() + " not found]"
+    );
+
+    val addr = address @ { .id == targetAddress };
+    return (
+        address = addr,
+        addrMeta = address_meta @ { .address == addr }
+    );
 }
 
 operation register (pubkey, role: integer) {

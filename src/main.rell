@@ -6,6 +6,7 @@ namespace auoPanelToken {
     // import erc721: ^.erc721;
     import erc1155: ^.erc1155;
     import account: ^.account;
+    import product: ^.product;
 
     struct accountData {
         pubkey: byte_array;

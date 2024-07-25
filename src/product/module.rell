@@ -1,0 +1,63 @@
+module;
+import account: ^.account;
+import asset: ^.asset;
+
+entity product_detail {
+    key owner: account.address;
+    mutable nfts_meta: text; // cid array
+    mutable trashed: boolean = false;
+    created_time: timestamp = op_context.last_block_time;
+    mutable updated_time: timestamp = op_context.last_block_time;
+}
+
+entity product_event {
+    index owner: product_detail;
+    key eventId: byte_array = op_context.transaction.tx_rid;
+    nfts_meta: text; // cid array
+    note: text;
+    operator: account.address;
+    created_time: timestamp = op_context.last_block_time;
+    block_height: integer = op_context.block_height;
+    transaction: transaction = op_context.transaction;
+}
+
+operation createProduct(operator: byte_array, targetAddress: byte_array, nftsMeta: text, message: text) {
+    op_context.is_signer(operator);
+    val operatorDetail = account.checkAddress(operator);
+    val targetDetail = account.checkAddress(targetAddress);
+    require(
+        targetDetail.addrMeta.role == account.roles.WALLET,
+        "Contract[The targetAddress:" + targetDetail.address + " does not have WALLET role permissions]"
+    );  
+
+    val productData = create product_detail(
+        .owner = targetDetail.address,
+        .nfts_meta = nftsMeta,
+    );
+    create product_event (
+        .owner = productData,
+        .nfts_meta = nftsMeta,
+        .note = message,
+        .operator = operatorDetail.address
+    );
+}
+
+operation updateProductMeta(operator: byte_array, targetAddress: byte_array, nftsMeta: text, message: text) {
+    op_context.is_signer(operator);
+
+    val operatorDetail = account.checkAddress(operator);
+    val targetDetail = account.checkAddress(targetAddress);
+    require(
+        targetDetail.addrMeta.role == account.roles.WALLET,
+        "Contract[The targetAddress:" + targetDetail.address + " does not have WALLET role permissions]"
+    );
+
+    val productData = product_detail @ { .owner == targetDetail.address };
+    update productData (.nfts_meta = nftsMeta, updated_time = op_context.last_block_time);
+    create product_event( 
+        .owner = productData,
+        .nfts_meta = nftsMeta,
+        .note = message,
+        .operator = operatorDetail.address
+    );
+}
