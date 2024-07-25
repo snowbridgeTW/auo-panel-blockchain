@@ -1,0 +1,35 @@
+// module;
+// entity ERC721Token {
+//     key token_id: integer;
+//     mutable owner: byte_array;
+//     mutable approved: byte_array;
+// }
+
+// operation mint_token(to: byte_array, token_id: integer) {
+//     require(op_context.is_signer(to));
+//     create ERC721Token ( token_id, owner = to, approved = x"" );
+// }
+
+// operation transfer(from: byte_array, to: byte_array, token_id: integer) {
+//     val token = ERC721Token @ { .token_id == token_id };
+//     require(op_context.is_signer(from) or token.approved == from);
+//     require(token.owner == from);
+//     update ERC721Token @ { .token_id == token_id } ( .owner = to, .approved = x"" );
+// }
+
+// operation approve(owner: byte_array, to: byte_array, token_id: integer) {
+//     require(op_context.is_signer(owner));
+//     val token = ERC721Token @ { .token_id == token_id };
+//     require(token.owner == owner);
+//     update ERC721Token @ { .token_id == token_id } ( .approved = to, .owner = token.owner );
+// }
+
+// query owner_of(token_id: integer): byte_array {
+//     val token = ERC721Token @ { .token_id == token_id };
+//     return token.owner;
+// }
+
+// query get_approved(token_id: integer): byte_array {
+//     val token = ERC721Token @ { .token_id == token_id };
+//     return token.approved;
+// }

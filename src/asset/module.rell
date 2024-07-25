@@ -1,0 +1,32 @@
+module;
+
+import account: ^.account;
+
+entity asset {
+    id: byte_array;
+    key id;
+    name;
+    issuer: account.address;
+    meta_data: text; // IPFS URL
+    mutable owner: account.address;
+}
+
+entity balance {
+    key account.address, asset;
+    mutable amount: integer = 0;
+}
+
+function ensure_balance(addr: account.address, asset: asset): balance {
+    val bal = balance @? { addr, asset };
+    return if (bal != null) bal else create balance ( addr, asset, amount = 0 );
+}
+
+// 鑄造資產
+operation mint_asset(name: text, data: text, minter: account.address, owner: account.address) {
+    val acc = account.address @ { .id == minter };
+    val meta = account.address_meta @ { .address == acc };
+    require(meta.role == account.roles.AUO, "Only minters can mint assets");
+    
+    val id = (name + data).hash();
+    // create asset(id, name, minter, data, owner);
+    }

@@ -1,25 +1,40 @@
 module;
 
 enum roles {
-    auo, // mint asset、xfer asset、event log
-    auoInventoryTcon, auoBurnTcon,
-    auoInventoryBLU, auoBurnBLU,
-    auoInventoryFHDCell, auoBurnFHDCell,
-    auoInventoryQHDCell, auoBurnQHDCell,
-    auoInventoryUHDCell, auoBurnUHDCell,
-    obher, // xfer asset、event log
-    oherOPInventoryTcon, oherOPBurnTcon,
-    oherOPInventoryBLU, oherOPBurnBLU,
-    oherOPInventoryFHDCell, oherOPBurnFHDCell,
-    oherOPInventoryQHDCell, oherOPBurnQHDCell,
-    oherOPInventoryUHDCell, oherOPBurnUHDCell,
-    channel, // xfer asset、event log
-    channelOPInventoryTcon, channelOPBurnTcon,
-    channelOPInventoryBLU, channelOPBurnBLU,
-    channelOPInventoryFHDCell, channelOPBurnFHDCell,
-    channelOPInventoryQHDCell, channelOPBurnQHDCell,
-    channelOPInventoryUHDCell, channelOPBurnUHDCell,
-    wallet // event log
+    AUO, // mint asset、xfer asset、event log
+    auoInventoryTcon,
+    auoBurnTcon,
+    auoInventoryBLU,
+    auoBurnBLU,
+    auoInventoryFHDCell,
+    auoBurnFHDCell,
+    auoInventoryQHDCell,
+    auoBurnQHDCell,
+    auoInventoryUHDCell,
+    auoBurnUHDCell,
+    OTHER, // xfer asset、event log
+    otherOPInventoryTcon,
+    otherOPBurnTcon,
+    otherOPInventoryBLU,
+    otherOPBurnBLU,
+    otherOPInventoryFHDCell,
+    otherOPBurnFHDCell,
+    otherOPInventoryQHDCell,
+    otherOPBurnQHDCell,
+    otherOPInventoryUHDCell,
+    otherOPBurnUHDCell,
+    CHANNEL, // xfer asset、event log
+    channelOPInventoryTcon,
+    channelOPBurnTcon,
+    channelOPInventoryBLU,
+    channelOPBurnBLU,
+    channelOPInventoryFHDCell,
+    channelOPBurnFHDCell,
+    channelOPInventoryQHDCell,
+    channelOPBurnQHDCell,
+    channelOPInventoryUHDCell,
+    channelOPBurnUHDCell,
+    WALLET // event log
 }
 
 entity address {
@@ -27,13 +42,19 @@ entity address {
 }
 
 entity address_meta {
+    key address: address;
     index address: address;
     mutable desc: text = '';
     role: roles;
+    created_time: timestamp = op_context.last_block_time;
+    block_height: integer = op_context.block_height;
+    index transaction: transaction = op_context.transaction;
 }
 
 operation register (pubkey, role: integer) {
     require(address @?{.id == pubkey} == null, 'Address already registered');
+    log('role: ', roles.value(role));
+
     val acc = create address (pubkey);
     create address_meta(
         address = acc,

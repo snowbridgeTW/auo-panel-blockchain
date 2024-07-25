@@ -96,7 +96,7 @@ services:
       - "7750:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node0.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node0.properties --wipe
     restart: always
     logging:
       driver: "json-file"
@@ -115,7 +115,7 @@ services:
       - "7751:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node1.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node1.properties --wipe
     restart: always
     logging:
       driver: "json-file"
@@ -134,7 +134,7 @@ services:
       - "7752:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node2.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node2.properties --wipe
     restart: always
     logging:
       driver: "json-file"
@@ -153,7 +153,7 @@ services:
       - "7753:7750"
     volumes:
       - ./:/usr/app
-    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node3.properties
+    command: chr node start -bc /usr/app/build/auo-contract.xml -np /usr/app/conf/node3.properties --wipe
     restart: always
     logging:
       driver: "json-file"
