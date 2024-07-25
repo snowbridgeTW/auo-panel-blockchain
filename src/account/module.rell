@@ -1,0 +1,47 @@
+module;
+
+enum roles {
+    AUO, // mint asset、xfer asset、event log
+    OTHER, // xfer asset、event log
+    CHANNEL, // xfer asset、event log
+    WALLET // event log
+}
+
+entity address {
+    key id: byte_array;
+}
+
+entity address_meta {
+    key address: address;
+    index address: address;
+    mutable desc: text = '';
+    role: roles;
+    trashed: boolean = false;
+    created_time: timestamp = op_context.last_block_time;
+    block_height: integer = op_context.block_height;
+    index transaction: transaction = op_context.transaction;
+}
+
+function checkAddress(targetAddress: byte_array) {
+    require(
+        address @? { .id == targetAddress } != null,
+        "Contract[address: " + targetAddress.to_hex() + " not found]"
+    );
+
+    val addr = address @ { .id == targetAddress };
+    return (
+        address = addr,
+        addrMeta = address_meta @ { .address == addr }
+    );
+}
+
+operation register (pubkey, role: integer) {
+    require(address @?{.id == pubkey} == null, 'Address already registered');
+    log('role: ', roles.value(role));
+
+    val acc = create address (pubkey);
+    create address_meta(
+        address = acc,
+        role = roles.value(role)
+    );
+}

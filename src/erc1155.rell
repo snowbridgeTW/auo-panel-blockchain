@@ -1,0 +1,67 @@
+module;
+
+// entity role {
+//     key name: text;
+// }
+
+// entity account {
+//     key pubkey; // user
+
+// }
+
+entity ERC1155Token {
+    key token_id: integer;
+    key address: byte_array;
+    mutable balance: integer = 0;
+}
+
+entity OperatorApproval {
+    key owner: byte_array;
+    key operator: byte_array;
+    mutable approved: boolean = false;
+}
+
+operation mint_token(to: byte_array, token_id: integer, amount: integer) {
+    require(op_context.is_signer(to));
+    val token = ERC1155Token @? { .token_id == token_id, .address == to };
+    if (token != null) {
+        update ERC1155Token @ { .token_id == token_id, .address == to } ( .balance = token.balance + amount );
+    } else {
+        create ERC1155Token ( token_id, to, balance = amount );
+    }
+}
+
+operation transfer(from: byte_array, to: byte_array, token_id: integer, amount: integer) {
+    require(op_context.is_signer(from) or OperatorApproval @ { .owner == from, .operator == from }.approved);
+    val sender = ERC1155Token @ { .token_id == token_id, .address == from };
+    require(sender.balance >= amount);
+
+    val recipient = ERC1155Token @? { .token_id == token_id, .address == to };
+    if (recipient != null) {
+        update ERC1155Token @ { .token_id == token_id, .address == to } ( .balance = recipient.balance + amount );
+    } else {
+        create ERC1155Token ( token_id, to, balance = amount );
+    }
+
+    update ERC1155Token @ { .token_id == token_id, .address == from } ( .balance = sender.balance - amount );
+}
+
+operation set_approval_for_all(owner: byte_array, operator: byte_array, approved: boolean) {
+    require(op_context.is_signer(owner));
+    val approval = OperatorApproval @? { .owner == owner, .operator == operator };
+    if (approval != null) {
+        update OperatorApproval @ { .owner == owner, .operator == operator } ( .approved = approved );
+    } else {
+        create OperatorApproval ( owner, operator, approved = approved );
+    }
+}
+
+query balance_of(address: byte_array, token_id: integer): integer {
+    val token = ERC1155Token @? { .token_id == token_id, .address == address };
+    return if (token != null) token.balance else 0;
+}
+
+query is_approved_for_all(owner: byte_array, operator: byte_array): boolean {
+    val approval = OperatorApproval @? { .owner == owner, .operator == operator };
+    return if (approval != null) approval.approved else false;
+}
