@@ -1,28 +1,12 @@
 module;
 
 @mount('auoPanelToken')
-namespace auoPanelToken {
-    // import erc20: ^.erc20;
-    // import erc721: ^.erc721;
-    import erc1155: ^.erc1155;
+namespace core {
     import account: ^.account;
+    import asset: ^.asset;
     import product: ^.product;
+}
 
-    struct accountData {
-        pubkey: byte_array;
-        role: integer;
-    }
-
-    operation init(accounts: list<accountData>) {
-        for (item in accounts) {
-            if((account.address@*{item.pubkey}).size() == 0) {
-                val acc = create account.address( item.pubkey );
-                create account.address_meta(
-                    address = acc,
-                    role = account.roles.value(item.role)
-                );
-            }
-        };
-        
-    }
+namespace logSpace {
+    val title = 'Contract';
 }
