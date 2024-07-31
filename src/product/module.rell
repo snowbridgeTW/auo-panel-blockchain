@@ -12,6 +12,7 @@ enum product_action_type {
 
 entity product_detail {
     key owner: main.core.account.address;
+    name: text;
     mutable nfts_meta: text; // cid array
     created_time: timestamp = op_context.last_block_time;
     mutable updated_time: timestamp = op_context.last_block_time;
@@ -29,7 +30,7 @@ entity product_history {
     transaction: transaction = op_context.transaction;
 }
 
-operation createProduct(operator: byte_array, targetAddress: byte_array, nftsMeta: text, message: text) {
+operation createProduct(operator: byte_array, targetAddress: byte_array, name: text, nftsMeta: text, message: text) {
     op_context.is_signer(operator);
     val operatorDetail = main.core.account.checkAddress(operator);
     val targetDetail = main.core.account.checkAddress(targetAddress);
@@ -40,6 +41,7 @@ operation createProduct(operator: byte_array, targetAddress: byte_array, nftsMet
 
     val productData = create product_detail(
         .owner = targetDetail.address,
+        .name = name,
         .nfts_meta = nftsMeta
     );
     create product_history (

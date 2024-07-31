@@ -27,15 +27,14 @@ entity history {
     transaction: transaction = op_context.transaction;
 }
 
-operation mintAsset(name: text, serialId: text, metaCID: text, minter: byte_array) {
+operation mintAsset(name: text, serialId: byte_array, metaCID: text, minter: byte_array) {
     val mintDetail = main.core.account.checkAddress(minter);
     require(mintDetail.addrMeta.role == main.core.account.roles.AUO,
         main.logSpace.title + "[Only minters can mint assets]"
     );
     
-    val assetId = serialId.to_bytes();
     val assetData = create asset(
-        id = assetId,
+        id = serialId,
         name = name,
         issuer = mintDetail.address,
         meta_data = metaCID,
@@ -51,6 +50,8 @@ operation mintAsset(name: text, serialId: text, metaCID: text, minter: byte_arra
  }
 
 operation batchMintAssets(names: list<text>, serialIds: list<text>, metaCIDs: list<text>, minter: byte_array) {
+    op_context.is_signer(minter);
+
     val minterDetail = main.core.account.checkAddress(minter);
     require(minterDetail.addrMeta.role == main.core.account.roles.AUO,
         main.logSpace.title + "[Only minters can mint assets]"
@@ -78,6 +79,8 @@ operation batchMintAssets(names: list<text>, serialIds: list<text>, metaCIDs: li
 }
 
 operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_array, to: byte_array) {
+    op_context.is_signer(operator);
+
     val operatorDetail = main.core.account.checkAddress(operator);
     require(operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
         main.logSpace.title + '[The WALLET role does not have operation permissions]'
@@ -101,6 +104,8 @@ operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_ar
 }
 
 operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: byte_array, to: byte_array) {
+    op_context.is_signer(operator);
+
     val operatorDetail = main.core.account.checkAddress(operator);
     require(operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
         main.logSpace.title + '[The WALLET role does not have operation permissions]'
@@ -125,7 +130,7 @@ operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: 
     };
 }
 
-query getAssets(address: byte_array) {
+query getAssetByAddress(address: byte_array) {
     val addrDetail = main.core.account.checkAddress(address);
     return asset @* { .owner == addrDetail.address } (
         id = .id,
@@ -136,7 +141,8 @@ query getAssets(address: byte_array) {
     ).to_gtv_pretty();
 }
 
-query getAssetDetail(assetId: byte_array) {
+query getAssetById(assetId: byte_array) {
+    log('assetId: ', assetId);
     val assetDetail = asset @ { .id == assetId };
     return history@ { .asset == assetDetail, .action == action_type.MINT } (
         id = assetDetail.id,
@@ -148,7 +154,7 @@ query getAssetDetail(assetId: byte_array) {
         blockHeight = .block_height,
         blockRid = .transaction.block.block_rid,
         txRid = .transaction.tx_rid
-    );
+    ).to_gtv_pretty();
 }
 
 query getAssetMeta(assetId: byte_array) {

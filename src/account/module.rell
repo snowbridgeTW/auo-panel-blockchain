@@ -17,7 +17,7 @@ entity address {
 entity address_meta {
     key address: address;
     index address: address;
-    mutable desc: text = ''; // Describe the type of address.
+    desc: text = ''; // Describe the type of address.
     role: roles;
     created_time: timestamp = op_context.last_block_time;
     block_height: integer = op_context.block_height;
@@ -38,7 +38,7 @@ function checkAddress(targetAddress: byte_array) {
     );
 }
 
-operation register (pubkey, role: integer) {
+operation register (pubkey, role: integer, description: text) {
     require(address @? { .id == pubkey } == null,
         main.logSpace.title + '[pubkey: ' + pubkey.to_hex() + ' already registered]'
     );
@@ -47,8 +47,18 @@ operation register (pubkey, role: integer) {
     val acc = create address (pubkey);
     create address_meta(
         address = acc,
-        role = roles.value(role)
+        role = roles.value(role),
+        desc = description
     );
+}
+
+query getAddresses() {
+    return address_meta @* {} (
+        addressId = .address.id,
+        desc = .desc,
+        role = .role,
+        createdTime = .created_time
+    ).to_gtv_pretty();
 }
 
 query getAddressMeta(pubkey) {
@@ -59,7 +69,7 @@ query getAddressMeta(pubkey) {
         blockHeight = .block_height,
         blockRid = .transaction.block.block_rid,
         txRid = .transaction.tx_rid
-    );
+    ).to_gtv_pretty();
 }
 
 
