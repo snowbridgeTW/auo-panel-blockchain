@@ -32,6 +32,7 @@ operation mintAsset(name: text, serialId: byte_array, metaCID: text, minter: byt
     require(mintDetail.addrMeta.role == main.core.account.roles.AUO,
         main.logSpace.title + "[Only minters can mint assets]"
     );
+    require(serialId.size() > 24, main.logSpace.title + '[]');
     
     val assetData = create asset(
         id = serialId,
@@ -135,9 +136,9 @@ query getAssetByAddress(address: byte_array) {
     return asset @* { .owner == addrDetail.address } (
         id = .id,
         name = .name,
-        issuer = .issuer,
+        issuer = .issuer.id,
         metaData = .meta_data,
-        owner = .owner
+        owner = .owner.id
     ).to_gtv_pretty();
 }
 
@@ -147,9 +148,9 @@ query getAssetById(assetId: byte_array) {
     return history@ { .asset == assetDetail, .action == action_type.MINT } (
         id = assetDetail.id,
         name = assetDetail.name,
-        issuer = assetDetail.issuer,
+        issuer = assetDetail.issuer.id,
         metaData = assetDetail.meta_data,
-        owner = assetDetail.owner,
+        owner = assetDetail.owner.id,
         createdTime = .created_time,
         blockHeight = .block_height,
         blockRid = .transaction.block.block_rid,
@@ -160,13 +161,13 @@ query getAssetById(assetId: byte_array) {
 query getAssetMeta(assetId: byte_array) {
     return asset@ { .id == assetId } (
         metaData = .meta_data
-    );
+    ).to_gtv_pretty();
 }
 
 query getHistoryByAddress(address: byte_array) {
     val addrDetail = main.core.account.checkAddress(address);
     return history@*{ .owner == addrDetail.address } (
-        owner = .owner,
+        owner = .owner.id,
         asset = .asset.id,
         to = .to.id,
         action = .action,
@@ -179,7 +180,7 @@ query getHistoryByAddress(address: byte_array) {
 
 query getHistoryByAssetId(assetId: byte_array) { // Return only the history of the asset.
     return history@*{ .asset.id == assetId } (
-        owner = .owner,
+        owner = .owner.id,
         asset = .asset.id,
         to = .to.id,
         action = .action,

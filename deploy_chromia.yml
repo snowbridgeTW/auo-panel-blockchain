@@ -1,0 +1,10 @@
+blockchains:
+  auo_eco_asset:
+    module: main
+deployments:
+  testnet:
+    brid: x"69035D70A99A6BFAF887E415352B40589F1AD1F8D2ADF848FE995B23A8EC2127"
+    url: https://node0.projectnet.chromia.dev:7740
+    container: d10542f4ed564a4d030c663d48517436df1665d6432b3e8fd4fdb088134f24cc
+    chains:
+      auo_eco_asset: x"9DD292F7EE72B6866B8314D26D1CA4DA0A39DCEA2B763229685A9070D2AEBC51"

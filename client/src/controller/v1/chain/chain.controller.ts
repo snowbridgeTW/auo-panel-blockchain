@@ -9,12 +9,20 @@ import {
     AssetByAddressResDto,
     AssetByIdDto,
     AssetByIdResDto,
+    AssetMetaResDto,
     BatchMintAssetsDto,
+    HistoryResDto,
     MintAssetDto,
 } from '../dto/asset.dto';
-import { CreateProductDto } from '../dto/product.dto';
+import {
+    ProductByAddressReqDto,
+    ProductDetailResDto,
+    ProductHistoryResDto,
+    ProductReqDto,
+    TrashedProductReqDto,
+} from '../dto/product.dto';
 import { BatchTransferDto, TransferDto } from '../dto/transfer.dto';
-import { HistoryByAssetIdDto } from '../dto/history.dto';
+import { HistoryByAddressIdDto, HistoryByAssetIdDto } from '../dto/history.dto';
 import { AddressReqDto, AddressResDto, AddressesResDto } from '../dto/address.dto';
 
 @Controller('v1/chain')
@@ -141,7 +149,7 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async mintAsset(@Body() body: MintAssetDto): Promise<ChainResDto> {
-        this.logger.debug('Call - api/asset/mint');
+        this.logger.debug('Call - api/v1/asset/mint');
         const { privKey, pubKey, name, serialId, metaCID } = body;
 
         return await this.chainService.mintAsset({
@@ -173,7 +181,7 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async batchMintAssets(@Body() body: BatchMintAssetsDto): Promise<ChainResDto> {
-        this.logger.debug('Call - api/asset/batch-mint');
+        this.logger.debug('Call - api/v1/asset/batch-mint');
         const { privKey, pubKey, names, serialIds, metaCIDs } = body;
 
         return await this.chainService.batchMintAssets({
@@ -205,7 +213,7 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async transfer(@Body() body: TransferDto): Promise<ChainResDto> {
-        this.logger.debug('Call - api/product/create');
+        this.logger.debug('Call - api/v1/asset/transfer');
         const { privKey, pubKey, assetId, from, to } = body;
         return await this.chainService.transfer({
             privKey,
@@ -236,7 +244,7 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async batchTransfer(@Body() body: BatchTransferDto): Promise<ChainResDto> {
-        this.logger.debug('call - api/product/create');
+        this.logger.debug('call - api/v1/asset/batch-transfer');
         const { privKey, pubKey, assetIds, from, to } = body;
         return await this.chainService.batchTransfer({
             privKey,
@@ -256,7 +264,7 @@ export class ChainController {
     @ApiResponse({
         status: 200,
         description: 'Successfully retrieved assets.',
-        type: AssetByAddressResDto,
+        type: [AssetByAddressResDto],
     })
     @ApiResponse({
         status: 400,
@@ -270,16 +278,16 @@ export class ChainController {
         status: 500,
         description: 'Internal server error.',
     })
-    async getAssetByAddress(@Param() Params: AssetByAddressDto): Promise<AssetByAddressResDto[]> {
-        this.logger.debug('call - asset/:address');
-        const { address } = Params;
+    async getAssetByAddress(@Param() params: AssetByAddressDto): Promise<AssetByAddressResDto[]> {
+        this.logger.debug('call - api/v1/asset/:address');
+        const { address } = params;
         return await this.chainService.getAssetByAddress({
             address,
         });
     }
 
     @ApiTags('Asset')
-    @Get('assets/:assetId')
+    @Get('asset/:assetId')
     @ApiOperation({
         summary: 'Get asset by ID',
         description: 'Retrieves details of an asset by its ID.',
@@ -297,18 +305,54 @@ export class ChainController {
         status: 500,
         description: 'Internal server error.',
     })
-    async getAssetById(@Param() Params: AssetByIdDto): Promise<AssetByIdResDto> {
-        this.logger.debug('call - api/product/create');
-        const { assetId } = Params;
+    async getAssetById(@Param() params: AssetByIdDto): Promise<AssetByIdResDto> {
+        this.logger.debug('call - api/v1/asset/:assetId');
+        const { assetId } = params;
         return await this.chainService.getAssetById({
             assetId,
         });
     }
 
-    @Post('assets/history')
-    async getHistoryByAssetId(@Body() body: HistoryByAssetIdDto): Promise<ChainResDto> {
-        this.logger.debug('call - api/product/create');
-        const { assetId } = body;
+    @ApiTags('Asset')
+    @Get('asset/:assetId/meta')
+    @ApiOperation({
+        summary: 'Get asset by ID',
+        description: 'Retrieves details of an asset by its ID.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved asset metadata.',
+        type: AssetMetaResDto,
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Invalid asset ID format.',
+    })
+    @ApiResponse({
+        status: 500,
+        description: 'Internal server error.',
+    })
+    async getAssetMeta(@Param() params: AssetByIdDto): Promise<AssetMetaResDto> {
+        this.logger.debug('call - api/v1/asset/:assetId/meta');
+        const { assetId } = params;
+        return await this.chainService.getAssetMeta({
+            assetId,
+        });
+    }
+
+    @Get('asset/:address/history')
+    async getHistoryByAddressId(@Param() params: HistoryByAddressIdDto): Promise<HistoryResDto[]> {
+        this.logger.debug('call - api/v1/asset/:address/history');
+        const { address } = params;
+        return await this.chainService.getHistoryByAddress({
+            address,
+        });
+    }
+
+    @Get('asset/:assetId/history')
+    async getHistoryByAssetId(@Param() params: HistoryByAssetIdDto): Promise<HistoryResDto[]> {
+        this.logger.debug('call - api/v1/asset/:assetId/history');
+        const { assetId } = params;
         return await this.chainService.getHistoryByAssetId({
             assetId,
         });
@@ -316,15 +360,62 @@ export class ChainController {
 
     @ApiTags('Product')
     @Post('product/create')
-    async createProduct(@Body() body: CreateProductDto): Promise<ChainResDto> {
-        this.logger.debug('call - api/product/create');
+    async createProduct(@Body() body: ProductReqDto): Promise<ChainResDto> {
+        this.logger.debug('call - api/v1/product/create');
         const { privKey, pubKey, targetAddress, nftsMeta, message } = body;
-        return await this.chainService.createProduct({
+        return await this.chainService.productOperaction({
             privKey,
             pubKey,
             targetAddress,
             nftsMeta,
             message,
+            operationName: 'createProduct',
+        });
+    }
+
+    @ApiTags('Product')
+    @Post('product/update-meta')
+    async updateProductMeta(@Body() body: ProductReqDto): Promise<ChainResDto> {
+        this.logger.debug('call - api/v1/product/create');
+        const { privKey, pubKey, targetAddress, nftsMeta, message } = body;
+        return await this.chainService.productOperaction({
+            privKey,
+            pubKey,
+            targetAddress,
+            nftsMeta,
+            message,
+            operationName: 'updateProductMeta',
+        });
+    }
+
+    @ApiTags('Product')
+    @Post('product/trashed')
+    async trashedProduct(@Body() body: TrashedProductReqDto): Promise<ChainResDto> {
+        this.logger.debug('call - api/v1/product/trashed');
+        const { privKey, pubKey, owner, message } = body;
+        return await this.chainService.trashedProduct({
+            privKey,
+            pubKey,
+            owner,
+            message,
+        });
+    }
+
+    @Get('product/:address/detail')
+    async getProductDetail(@Param() params: ProductByAddressReqDto): Promise<ProductDetailResDto> {
+        this.logger.debug('call - api/v1/asset/:assetId/detail');
+        const { address } = params;
+        return await this.chainService.getProductDetail({
+            address,
+        });
+    }
+
+    @Get('product/:address/history')
+    async getProductHistory(@Param() params: ProductByAddressReqDto): Promise<ProductHistoryResDto[]> {
+        this.logger.debug('call - api/v1/asset/:assetId/history');
+        const { address } = params;
+        return await this.chainService.getProductHistory({
+            address,
         });
     }
 }

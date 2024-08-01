@@ -17,7 +17,8 @@ import {
 import { ChainResDto } from '../dto/chain.dto';
 import { KeyPairResDto } from '../dto/keypair.dto';
 import { AddressResDto, AddressesResDto } from '../dto/address.dto';
-import { AssetByAddressResDto, AssetByIdResDto } from '../dto/asset.dto';
+import { AssetByAddressResDto, AssetByIdResDto, AssetMetaResDto, HistoryResDto } from '../dto/asset.dto';
+import { ProductDetailResDto, ProductHistoryResDto } from '../dto/product.dto';
 
 @Injectable()
 export class ChainService {
@@ -105,6 +106,18 @@ export class ChainService {
         }
     }
 
+    async handleError(err: any): Promise<never> {
+        const errorMessage = err.message.match(/Contract\[([^\]]+)\]/);
+        if (errorMessage) {
+            const contractErrorContent = errorMessage[1];
+            this.logger.error(`Contract error content: ${contractErrorContent}`);
+            throw new HttpException(contractErrorContent, HttpStatus.NOT_FOUND);
+        } else {
+            this.logger.error(`Unknown error occurred: ${err.message}`);
+            throw new HttpException(err.message, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     async generateECDSAKey(): Promise<KeyPairResDto> {
         const keypair: KeyPair = encryption.makeKeyPair();
 
@@ -139,13 +152,13 @@ export class ChainService {
             desc: string;
             role: string;
             createdTime: number;
-        };
+        }[];
         const client = await this.restClient();
         const queryObject: QueryObject<ReturnType> = {
             name: 'getAddresses',
             args: {},
         };
-        const result: [AddressesResDto] = await client
+        const result: AddressesResDto[] = await client
             .query(queryObject)
             .then((result) => {
                 this.logger.debug(`query result: ${JSON.stringify(result)}`);
@@ -186,10 +199,7 @@ export class ChainService {
                 this.logger.debug(`query result: ${JSON.stringify(result)}`);
                 return result;
             })
-            .catch((err) => {
-                this.logger.debug(`error: ${err}`);
-                return err;
-            });
+            .catch((err) => this.handleError(err));
 
         result.blockRid = Buffer.isBuffer(result.blockRid) ? result.blockRid.toString('hex') : result.blockRid;
         result.txRid = Buffer.isBuffer(result.txRid) ? result.txRid.toString('hex') : result.txRid;
@@ -239,23 +249,44 @@ export class ChainService {
         return await this.chainOperation(payload, signerPrivKey);
     }
 
-    async createProduct({
+    async productOperaction({
         privKey,
-        pubKey,
+        pubKey, // operator
         targetAddress,
         nftsMeta,
         message,
+        operationName,
     }: {
         privKey: string;
         pubKey: string;
         targetAddress: string;
         nftsMeta: string;
         message: string;
+        operationName: string;
     }): Promise<ChainResDto> {
         const signerPrivKey = newSignatureProvider({ privKey: privKey });
         const payload: Operation = {
-            name: 'createProduct',
+            name: operationName,
             args: [Buffer.from(pubKey, 'hex'), Buffer.from(targetAddress, 'hex'), nftsMeta, message],
+        };
+        return await this.chainOperation(payload, signerPrivKey);
+    }
+
+    async trashedProduct({
+        privKey,
+        pubKey, // operator
+        owner,
+        message,
+    }: {
+        privKey: string;
+        pubKey: string;
+        owner: string;
+        message: string;
+    }): Promise<ChainResDto> {
+        const signerPrivKey = newSignatureProvider({ privKey: privKey });
+        const payload: Operation = {
+            name: 'trashedProduct',
+            args: [Buffer.from(pubKey, 'hex'), Buffer.from(owner, 'hex'), message],
         };
         return await this.chainOperation(payload, signerPrivKey);
     }
@@ -313,15 +344,13 @@ export class ChainService {
     }
 
     async getAssetByAddress({ address }: { address: string }): Promise<AssetByAddressResDto[]> {
-        type ReturnType = [
-            {
-                id: string;
-                name: string;
-                issuer: string;
-                metaData: string;
-                owner: string;
-            },
-        ];
+        type ReturnType = {
+            id: string;
+            name: string;
+            issuer: string;
+            metaData: string;
+            owner: string;
+        }[];
         this.logger.debug('query address: ', address);
         this.logger.debug('query Buffer address: ', Buffer.from(address, 'hex'));
 
@@ -330,25 +359,15 @@ export class ChainService {
             name: 'getAssetByAddress',
             args: { address: Buffer.from(address, 'hex') },
         };
-        const res: AssetByAddressResDto[] = await client
+        const result: AssetByAddressResDto[] = await client
             .query(queryObject)
             .then((result) => {
                 this.logger.log(`query result: ${JSON.stringify(result)}`);
                 return result;
             })
-            .catch((err) => {
-                const errorMessage = err.message.match(/Contract\[([^\]]+)\]/);
-                if (errorMessage) {
-                    const contractErrorContent = errorMessage[1];
-                    this.logger.error(`Contract error content: ${contractErrorContent}`);
-                    throw new HttpException(contractErrorContent, HttpStatus.NOT_FOUND);
-                } else {
-                    this.logger.error(`Unknown error occurred: ${err.message}`);
-                    throw new HttpException('Unknown error occurred', HttpStatus.INTERNAL_SERVER_ERROR);
-                }
-            });
+            .catch((err) => this.handleError(err));
 
-        const dataArray = Array.isArray(res) ? res : [res];
+        const dataArray = Array.isArray(result) ? result : [result];
         const convertedData = dataArray.map((item) => {
             return {
                 ...item,
@@ -381,52 +400,175 @@ export class ChainService {
             args: { assetId: Buffer.from(assetId) },
         };
 
-        const res: AssetByIdResDto = await client
+        const result: AssetByIdResDto = await client
             .query(queryObject)
             .then((result) => {
                 this.logger.log(`query result: ${JSON.stringify(result)}`);
                 return result;
             })
-            .catch((err) => {
-                const errorMessage = err.message.match(/Contract\[([^\]]+)\]/);
-                if (errorMessage) {
-                    const contractErrorContent = errorMessage[1];
-                    this.logger.error(`Contract error content: ${contractErrorContent}`);
-                    throw new HttpException(contractErrorContent, HttpStatus.NOT_FOUND);
-                } else {
-                    this.logger.error(`Unknown error occurred: ${err.message}`);
-                    throw new HttpException('Unknown error occurred', HttpStatus.INTERNAL_SERVER_ERROR);
-                }
-            });
+            .catch((err) => this.handleError(err));
         const convertedData = {
-            ...res,
-            id: Buffer.isBuffer(res.id) ? res.id.toString('hex') : res.id,
-            issuer: Buffer.isBuffer(res.issuer) ? res.issuer.toString('hex') : res.issuer,
-            owner: Buffer.isBuffer(res.owner) ? res.owner.toString('hex') : res.owner,
-            blockRid: Buffer.isBuffer(res.blockRid) ? res.blockRid.toString('hex') : res.blockRid,
-            txRid: Buffer.isBuffer(res.txRid) ? res.txRid.toString('hex') : res.txRid,
+            ...result,
+            id: Buffer.isBuffer(result.id) ? result.id.toString('hex') : result.id,
+            issuer: Buffer.isBuffer(result.issuer) ? result.issuer.toString('hex') : result.issuer,
+            owner: Buffer.isBuffer(result.owner) ? result.owner.toString('hex') : result.owner,
+            blockRid: Buffer.isBuffer(result.blockRid) ? result.blockRid.toString('hex') : result.blockRid,
+            txRid: Buffer.isBuffer(result.txRid) ? result.txRid.toString('hex') : result.txRid,
         };
         return convertedData;
     }
 
-    async getHistoryByAssetId({ assetId }: { assetId: string }): Promise<any> {
-        type ReturnType = { txIid: number; txHash: Buffer };
+    async getAssetMeta({ assetId }: { assetId: string }): Promise<AssetMetaResDto> {
+        type ReturnType = { metaData: string };
+        const client = await this.restClient();
+        const queryObject: QueryObject<ReturnType> = {
+            name: 'getAssetMeta',
+            args: { assetId: Buffer.from(assetId) },
+        };
+
+        const res: AssetMetaResDto = await client
+            .query(queryObject)
+            .then((result) => {
+                this.logger.log(`query result: ${JSON.stringify(result)}`);
+                return result;
+            })
+            .catch((err) => this.handleError(err));
+        return res;
+    }
+
+    async getHistoryByAddress({ address }: { address: string }): Promise<HistoryResDto[]> {
+        type ReturnType = {
+            owner: string;
+            asset: string;
+            to: string;
+            action: string;
+            createdTime: number;
+            blockHeight: number;
+            blockRid: string;
+            txRid: string;
+        }[];
+        const client = await this.restClient();
+        const queryObject: QueryObject<ReturnType> = {
+            name: 'getHistoryByAddress',
+            args: { address: Buffer.from(address, 'hex') },
+        };
+
+        const result: HistoryResDto[] = await client
+            .query(queryObject)
+            .then((result) => {
+                this.logger.log(`query result: ${JSON.stringify(result)}`);
+                return result;
+            })
+            .catch((err) => this.handleError(err));
+
+        const dataArray = Array.isArray(result) ? result : [result];
+        const convertedData = dataArray.map((item) => {
+            return {
+                ...item,
+                owner: Buffer.isBuffer(item.owner) ? item.owner.toString('hex') : item.owner,
+                asset: Buffer.isBuffer(item.asset) ? item.asset.toString('hex') : item.asset,
+                to: Buffer.isBuffer(item.to) ? item.to.toString('hex') : item.to,
+                blockRid: Buffer.isBuffer(item.blockRid) ? item.blockRid.toString('hex') : item.blockRid,
+                txRid: Buffer.isBuffer(item.txRid) ? item.txRid.toString('hex') : item.txRid,
+            };
+        });
+        return convertedData;
+    }
+
+    async getHistoryByAssetId({ assetId }: { assetId: string }): Promise<HistoryResDto[]> {
+        type ReturnType = {
+            owner: string;
+            asset: string;
+            to: string;
+            action: string;
+            createdTime: number;
+            blockHeight: number;
+            blockRid: string;
+            txRid: string;
+        }[];
         const client = await this.restClient();
         const queryObject: QueryObject<ReturnType> = {
             name: 'getHistoryByAssetId',
             args: { assetId: Buffer.from(assetId) },
         };
 
-        const res: any = await client
+        const result: HistoryResDto[] = await client
             .query(queryObject)
             .then((result) => {
                 this.logger.log(`query result: ${JSON.stringify(result)}`);
                 return result;
             })
-            .catch((err) => {
-                this.logger.log(`error: ${err}`);
-                return err;
-            });
-        return res;
+            .catch((err) => this.handleError(err));
+        const dataArray = Array.isArray(result) ? result : [result];
+        const convertedData = dataArray.map((item) => {
+            return {
+                ...item,
+                owner: Buffer.isBuffer(item.owner) ? item.owner.toString('hex') : item.owner,
+                asset: Buffer.isBuffer(item.asset) ? item.asset.toString('hex') : item.asset,
+                to: Buffer.isBuffer(item.to) ? item.to.toString('hex') : item.to,
+                blockRid: Buffer.isBuffer(item.blockRid) ? item.blockRid.toString('hex') : item.blockRid,
+                txRid: Buffer.isBuffer(item.txRid) ? item.txRid.toString('hex') : item.txRid,
+            };
+        });
+        return convertedData;
+    }
+
+    async getProductDetail({ address }: { address: string }): Promise<ProductDetailResDto> {
+        type ReturnType = {
+            name: string;
+            metaData: string;
+            createdTime: number;
+            updatedTime: number;
+        };
+        const client = await this.restClient();
+        const queryObject: QueryObject<ReturnType> = {
+            name: 'getProductDetail',
+            args: { address: Buffer.from(address) },
+        };
+
+        const result: ProductDetailResDto = await client
+            .query(queryObject)
+            .then((result) => {
+                this.logger.log(`query result: ${JSON.stringify(result)}`);
+                return result;
+            })
+            .catch((err) => this.handleError(err));
+        return result;
+    }
+
+    async getProductHistory({ address }: { address: string }): Promise<ProductHistoryResDto[]> {
+        type ReturnType = {
+            eventId: string;
+            metaData: string;
+            note: string;
+            action: string;
+            operator: string;
+            createdTime: number;
+            blockHeight: number;
+            blockRid: string;
+        }[];
+        const client = await this.restClient();
+        const queryObject: QueryObject<ReturnType> = {
+            name: 'getHistoryByAssetId',
+            args: { address: Buffer.from(address) },
+        };
+
+        const result: ProductHistoryResDto[] = await client
+            .query(queryObject)
+            .then((result) => {
+                this.logger.log(`query result: ${JSON.stringify(result)}`);
+                return result;
+            })
+            .catch((err) => this.handleError(err));
+        const dataArray = Array.isArray(result) ? result : [result];
+        const convertedData = dataArray.map((item) => {
+            return {
+                ...item,
+                eventId: Buffer.isBuffer(item.eventId) ? item.eventId.toString('hex') : item.eventId,
+                operator: Buffer.isBuffer(item.operator) ? item.operator.toString('hex') : item.operator,
+                blockRid: Buffer.isBuffer(item.blockRid) ? item.blockRid.toString('hex') : item.blockRid,
+            };
+        });
+        return convertedData;
     }
 }

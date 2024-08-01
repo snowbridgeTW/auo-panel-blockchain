@@ -114,6 +114,7 @@ operation trashedProduct(operator: byte_array, owner: byte_array, message: text)
 
 query getProductDetail(address: byte_array) {
     return product_detail@ { .owner.id == address }(
+        name = .name,
         metaData = .nfts_meta,
         createdTime = .created_time,
         updatedTime = .updated_time
@@ -132,10 +133,9 @@ query getProductHistory(address: byte_array) {
         metaData = .nfts_meta,
         note = .note,
         action = .action,
-        operator = .operator,
+        operator = .operator.id,
         createdTime = .created_time,
         blockHeight = .block_height,
-        blockRid = .transaction.block.block_rid,
-        tx_rid = .transaction.tx_rid
+        blockRid = .transaction.block.block_rid
     );
 }

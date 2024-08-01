@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <dict>
+    <entry key="add_primary_key_to_header">
+        <int>1</int>
+    </entry>
     <entry key="blockstrategy">
         <dict>
+            <entry key="mininterblockinterval">
+                <int>1000</int>
+            </entry>
             <entry key="name">
                 <string>net.postchain.base.BaseBlockBuildingStrategy</string>
             </entry>
@@ -23,6 +29,9 @@
             </entry>
             <entry key="rell">
                 <dict>
+                    <entry key="compilerVersion">
+                        <string>0.13.14</string>
+                    </entry>
                     <entry key="modules">
                         <array>
                             <string>main</string>
@@ -144,6 +153,7 @@ operation mintAsset(name: text, serialId: byte_array, metaCID: text, minter: byt
     require(mintDetail.addrMeta.role == main.core.account.roles.AUO,
         main.logSpace.title + "[Only minters can mint assets]"
     );
+    require(serialId.size() &gt; 24, main.logSpace.title + '[]');
     
     val assetData = create asset(
         id = serialId,
@@ -247,9 +257,9 @@ query getAssetByAddress(address: byte_array) {
     return asset @* { .owner == addrDetail.address } (
         id = .id,
         name = .name,
-        issuer = .issuer,
+        issuer = .issuer.id,
         metaData = .meta_data,
-        owner = .owner
+        owner = .owner.id
     ).to_gtv_pretty();
 }
 
@@ -259,9 +269,9 @@ query getAssetById(assetId: byte_array) {
     return history@ { .asset == assetDetail, .action == action_type.MINT } (
         id = assetDetail.id,
         name = assetDetail.name,
-        issuer = assetDetail.issuer,
+        issuer = assetDetail.issuer.id,
         metaData = assetDetail.meta_data,
-        owner = assetDetail.owner,
+        owner = assetDetail.owner.id,
         createdTime = .created_time,
         blockHeight = .block_height,
         blockRid = .transaction.block.block_rid,
@@ -272,13 +282,13 @@ query getAssetById(assetId: byte_array) {
 query getAssetMeta(assetId: byte_array) {
     return asset@ { .id == assetId } (
         metaData = .meta_data
-    );
+    ).to_gtv_pretty();
 }
 
 query getHistoryByAddress(address: byte_array) {
     val addrDetail = main.core.account.checkAddress(address);
     return history@*{ .owner == addrDetail.address } (
-        owner = .owner,
+        owner = .owner.id,
         asset = .asset.id,
         to = .to.id,
         action = .action,
@@ -291,7 +301,7 @@ query getHistoryByAddress(address: byte_array) {
 
 query getHistoryByAssetId(assetId: byte_array) { // Return only the history of the asset.
     return history@*{ .asset.id == assetId } (
-        owner = .owner,
+        owner = .owner.id,
         asset = .asset.id,
         to = .to.id,
         action = .action,
@@ -304,234 +314,6 @@ query getHistoryByAssetId(assetId: byte_array) { // Return only the history of t
 
 
 
-</string>
-                            </entry>
-                            <entry key="erc1155example.rell">
-                                <string>// module;
-
-// entity role {
-//     key name: text;
-// }
-
-// entity account {
-//     key pubkey; // user
-
-// }
-
-// entity ERC1155Token {
-//     key token_id: integer;
-//     key address: byte_array;
-//     mutable balance: integer = 0;
-// }
-
-// entity OperatorApproval {
-//     key owner: byte_array;
-//     key operator: byte_array;
-//     mutable approved: boolean = false;
-// }
-
-// operation mint_token(to: byte_array, token_id: integer, amount: integer) {
-//     require(op_context.is_signer(to));
-//     val token = ERC1155Token @? { .token_id == token_id, .address == to };
-//     if (token != null) {
-//         update ERC1155Token @ { .token_id == token_id, .address == to } ( .balance = token.balance + amount );
-//     } else {
-//         create ERC1155Token ( token_id, to, balance = amount );
-//     }
-// }
-
-// operation transfer(from: byte_array, to: byte_array, token_id: integer, amount: integer) {
-//     require(op_context.is_signer(from) or OperatorApproval @ { .owner == from, .operator == from }.approved);
-//     val sender = ERC1155Token @ { .token_id == token_id, .address == from };
-//     require(sender.balance &gt;= amount);
-
-//     val recipient = ERC1155Token @? { .token_id == token_id, .address == to };
-//     if (recipient != null) {
-//         update ERC1155Token @ { .token_id == token_id, .address == to } ( .balance = recipient.balance + amount );
-//     } else {
-//         create ERC1155Token ( token_id, to, balance = amount );
-//     }
-
-//     update ERC1155Token @ { .token_id == token_id, .address == from } ( .balance = sender.balance - amount );
-// }
-
-// operation set_approval_for_all(owner: byte_array, operator: byte_array, approved: boolean) {
-//     require(op_context.is_signer(owner));
-//     val approval = OperatorApproval @? { .owner == owner, .operator == operator };
-//     if (approval != null) {
-//         update OperatorApproval @ { .owner == owner, .operator == operator } ( .approved = approved );
-//     } else {
-//         create OperatorApproval ( owner, operator, approved = approved );
-//     }
-// }
-
-// query balance_of(address: byte_array, token_id: integer): integer {
-//     val token = ERC1155Token @? { .token_id == token_id, .address == address };
-//     return if (token != null) token.balance else 0;
-// }
-
-// query is_approved_for_all(owner: byte_array, operator: byte_array): boolean {
-//     val approval = OperatorApproval @? { .owner == owner, .operator == operator };
-//     return if (approval != null) approval.approved else false;
-// }
-</string>
-                            </entry>
-                            <entry key="erc20.rell">
-                                <string>// module;
-
-// entity TokenInfo {
-//     key token_index: integer;
-//     name: text;
-//     icon: text;
-//     creator: byte_array;
-// }
-
-// entity ERC20Token {
-//     key address: byte_array;
-//     key token_index: TokenInfo;
-//     mutable balance: integer = 0;
-// }
-
-// entity Allowance {
-//     key owner: byte_array;
-//     key spender: byte_array;
-//     key token_index: TokenInfo;
-//     mutable amount: integer = 0;
-// }
-
-// operation init_token(token_index: integer, name: text, icon: text, total_supply: integer, creator: byte_array) {
-//     require(op_context.is_signer(creator));
-//     create TokenInfo ( token_index, name, icon, creator );
-//     create ERC20Token ( creator, TokenInfo@ {.token_index == token_index}, balance = total_supply );
-// }
-
-// operation mint_token(token_index: integer, amount: integer, to: byte_array, creator: byte_array) {
-//     require(op_context.is_signer(creator));
-//     val token_info = TokenInfo @ { .token_index == token_index };
-//     require(token_info.creator == creator);
-
-//     val recipient = ERC20Token @? { .address == to, .token_index == token_info };
-//     if (recipient != null) {
-//         update ERC20Token @ { .address == to, .token_index == token_info } ( .balance = recipient.balance + amount );
-//     } else {
-//         create ERC20Token ( to, token_info, balance = amount );
-//     }
-// }
-
-// operation transfer(token_index: integer, from: byte_array, to: byte_array, amount: integer) {
-//     require(op_context.is_signer(from));
-//     val token_info = TokenInfo @ { .token_index == token_index };
-//     val sender = ERC20Token @ { .address == from, .token_index == token_info };
-//     require(sender.balance &gt;= amount);
-
-//     val recipient = ERC20Token @? { .address == to, .token_index == token_info };
-
-//     if (recipient != null) {
-//         update ERC20Token @ { .address == to, .token_index == token_info } ( .balance = recipient.balance + amount );
-//     } else {
-//         create ERC20Token ( to, token_info, balance = amount );
-//     }
-
-//     update ERC20Token @ { .address == from, .token_index == token_info } ( .balance = sender.balance - amount );
-// }
-
-// operation approve(token_index: integer, owner: byte_array, spender: byte_array, amount: integer) {
-//     require(op_context.is_signer(owner));
-//     val token_info = TokenInfo @ { .token_index == token_index };
-//     val allowance = Allowance @? { .owner == owner, .spender == spender, .token_index == token_info };
-//     if (allowance != null) {
-//         update Allowance @ { .owner == owner, .spender == spender, .token_index == token_info } ( .amount = amount );
-//     } else {
-//         create Allowance ( owner, spender, token_info, amount = amount );
-//     }
-// }
-
-// operation transfer_from(
-//     token_index: integer,
-//     from: byte_array,
-//     to: byte_array,
-//     amount: integer,
-//     spender: byte_array
-// ) {
-//     require(op_context.is_signer(spender));
-//     val token_info = TokenInfo @ { .token_index == token_index };
-//     val allowance = Allowance @ { .owner == from, .spender == spender, .token_index == token_info };
-//     require(allowance.amount &gt;= amount);
-
-//     val sender = ERC20Token @ { .address == from, .token_index == token_info };
-//     require(sender.balance &gt;= amount);
-
-//     val recipient = ERC20Token @? { .address == to, .token_index == token_info };
-
-//     if (recipient != null) {
-//         update ERC20Token @ { .address == to, .token_index == token_info } ( .balance = recipient.balance + amount );
-//     } else {
-//         create ERC20Token ( to, token_info, balance = amount );
-//     }
-
-//     update ERC20Token @ { .address == from, .token_index == token_info } ( .balance = sender.balance - amount );
-//     update Allowance @ {
-//         .owner == from,
-//         .spender == spender,
-//         .token_index == token_info
-//     } (
-//         .amount = allowance.amount - amount
-//     );
-// }
-
-// query balance_of(token_index: integer, owner: byte_array): integer {
-//     val token_info = TokenInfo @ { .token_index == token_index };
-//     val token = ERC20Token @? { .address == owner, .token_index == token_info };
-//     return if (token != null) token.balance else 0;
-// }
-
-// query allowance(token_index: integer, owner: byte_array, spender: byte_array): integer {
-//     val token_info = TokenInfo @ { .token_index == token_index };
-//     val allowance = Allowance @? { .owner == owner, .spender == spender, .token_index == token_info };
-//     return if (allowance != null) allowance.amount else 0;
-// }
-
-// query token_info(token_index: integer): (text, text, byte_array) {
-//     val info = TokenInfo @ { .token_index == token_index };
-//     return (info.name, info.icon, info.creator);
-// }</string>
-                            </entry>
-                            <entry key="erc721.rell">
-                                <string>// module;
-// entity ERC721Token {
-//     key token_id: integer;
-//     mutable owner: byte_array;
-//     mutable approved: byte_array;
-// }
-
-// operation mint_token(to: byte_array, token_id: integer) {
-//     require(op_context.is_signer(to));
-//     create ERC721Token ( token_id, owner = to, approved = x"" );
-// }
-
-// operation transfer(from: byte_array, to: byte_array, token_id: integer) {
-//     val token = ERC721Token @ { .token_id == token_id };
-//     require(op_context.is_signer(from) or token.approved == from);
-//     require(token.owner == from);
-//     update ERC721Token @ { .token_id == token_id } ( .owner = to, .approved = x"" );
-// }
-
-// operation approve(owner: byte_array, to: byte_array, token_id: integer) {
-//     require(op_context.is_signer(owner));
-//     val token = ERC721Token @ { .token_id == token_id };
-//     require(token.owner == owner);
-//     update ERC721Token @ { .token_id == token_id } ( .approved = to, .owner = token.owner );
-// }
-
-// query owner_of(token_id: integer): byte_array {
-//     val token = ERC721Token @ { .token_id == token_id };
-//     return token.owner;
-// }
-
-// query get_approved(token_id: integer): byte_array {
-//     val token = ERC721Token @ { .token_id == token_id };
-//     return token.approved;
-// }
 </string>
                             </entry>
                             <entry key="main.rell">
@@ -666,6 +448,7 @@ operation trashedProduct(operator: byte_array, owner: byte_array, message: text)
 
 query getProductDetail(address: byte_array) {
     return product_detail@ { .owner.id == address }(
+        name = .name,
         metaData = .nfts_meta,
         createdTime = .created_time,
         updatedTime = .updated_time
@@ -684,11 +467,10 @@ query getProductHistory(address: byte_array) {
         metaData = .nfts_meta,
         note = .note,
         action = .action,
-        operator = .operator,
+        operator = .operator.id,
         createdTime = .created_time,
         blockHeight = .block_height,
-        blockRid = .transaction.block.block_rid,
-        tx_rid = .transaction.tx_rid
+        blockRid = .transaction.block.block_rid
     );
 }</string>
                             </entry>
@@ -711,6 +493,9 @@ query getProductHistory(address: byte_array) {
         <dict>
             <entry key="fast_revolt_status_timeout">
                 <int>2000</int>
+            </entry>
+            <entry key="revolt_when_should_build_block">
+                <int>1</int>
             </entry>
         </dict>
     </entry>
