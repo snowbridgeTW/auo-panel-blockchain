@@ -1,43 +1,54 @@
 module;
-import account: ^.account;
-import asset: ^.asset;
+
+import main: ^.main;
+
+val logTile = 'Contract';
+
+enum product_action_type {
+    CREATE,
+    UPDATE,
+    TRASHED
+}
 
 entity product_detail {
-    key owner: account.address;
+    key owner: main.core.account.address;
+    name: text;
     mutable nfts_meta: text; // cid array
-    mutable trashed: boolean = false;
     created_time: timestamp = op_context.last_block_time;
     mutable updated_time: timestamp = op_context.last_block_time;
 }
 
-entity product_event {
-    index owner: product_detail;
-    key eventId: byte_array = op_context.transaction.tx_rid;
+entity product_history {
+    index product: product_detail;
+    key event_id: byte_array = op_context.transaction.tx_rid;
     nfts_meta: text; // cid array
     note: text;
-    operator: account.address;
+    action: product_action_type;
+    operator: main.core.account.address;
     created_time: timestamp = op_context.last_block_time;
     block_height: integer = op_context.block_height;
     transaction: transaction = op_context.transaction;
 }
 
-operation createProduct(operator: byte_array, targetAddress: byte_array, nftsMeta: text, message: text) {
+operation createProduct(operator: byte_array, targetAddress: byte_array, name: text, nftsMeta: text, message: text) {
     op_context.is_signer(operator);
-    val operatorDetail = account.checkAddress(operator);
-    val targetDetail = account.checkAddress(targetAddress);
+    val operatorDetail = main.core.account.checkAddress(operator);
+    val targetDetail = main.core.account.checkAddress(targetAddress);
     require(
-        targetDetail.addrMeta.role == account.roles.WALLET,
-        "Contract[The targetAddress:" + targetDetail.address + " does not have WALLET role permissions]"
+        targetDetail.addrMeta.role == main.core.account.roles.WALLET,
+        main.logSpace.title + "[The targetAddress:" + targetDetail.address.id.to_hex() + " does not have WALLET role permissions]"
     );  
 
     val productData = create product_detail(
         .owner = targetDetail.address,
-        .nfts_meta = nftsMeta,
+        .name = name,
+        .nfts_meta = nftsMeta
     );
-    create product_event (
-        .owner = productData,
+    create product_history (
+        .product = productData,
         .nfts_meta = nftsMeta,
         .note = message,
+        .action = product_action_type.CREATE,
         .operator = operatorDetail.address
     );
 }
@@ -45,19 +56,86 @@ operation createProduct(operator: byte_array, targetAddress: byte_array, nftsMet
 operation updateProductMeta(operator: byte_array, targetAddress: byte_array, nftsMeta: text, message: text) {
     op_context.is_signer(operator);
 
-    val operatorDetail = account.checkAddress(operator);
-    val targetDetail = account.checkAddress(targetAddress);
+    val operatorDetail = main.core.account.checkAddress(operator);
+    val targetDetail = main.core.account.checkAddress(targetAddress);
     require(
-        targetDetail.addrMeta.role == account.roles.WALLET,
-        "Contract[The targetAddress:" + targetDetail.address + " does not have WALLET role permissions]"
+        targetDetail.addrMeta.role == main.core.account.roles.WALLET,
+        main.logSpace.title + "[The targetAddress:" + targetDetail.address.id.to_hex() + " does not have WALLET role permissions]"
     );
 
     val productData = product_detail @ { .owner == targetDetail.address };
     update productData (.nfts_meta = nftsMeta, updated_time = op_context.last_block_time);
-    create product_event( 
-        .owner = productData,
+    create product_history( 
+        .product = productData,
         .nfts_meta = nftsMeta,
         .note = message,
+        .action = product_action_type.UPDATE,
         .operator = operatorDetail.address
+    );
+}
+
+operation trashedProduct(operator: byte_array, owner: byte_array, message: text) {
+    op_context.is_signer(operator);
+    
+    val operatorDetail = main.core.account.checkAddress(operator);
+    require(
+        operatorDetail.addrMeta.role == main.core.account.roles.AUO,
+        main.logSpace.title + '[Operator does not have AUO role permissions]'
+    );
+    
+    val ownerDetail = main.core.account.checkAddress(owner);
+    require(
+        ownerDetail.addrMeta.role == main.core.account.roles.WALLET,
+        main.logSpace.title + "[The targetAddress: " + ownerDetail.address.id.to_hex() + " does not have WALLET role permissions]"
+    );
+
+    require(
+        product_detail @? { .owner == ownerDetail.address } != null,
+        main.logSpace.title + "[Product for owner: " + ownerDetail.address.id.to_hex() + " not found]"
+    );
+    val productDetail = product_detail@ { .owner == ownerDetail.address };
+    
+    require(
+        product_history @? { .product == productDetail, .action == product_action_type.TRASHED} != null,
+        main.logSpace.title + "[Product already trashed]"
+    );
+    val events = product_history @*{ .product == productDetail } (@sort_desc .created_time, .nfts_meta ) limit 1;
+    create product_history (
+        .product = productDetail,
+        .nfts_meta = events[0].nfts_meta, // cid array
+        .note = message,
+        .action = product_action_type.TRASHED,
+        .operator = ownerDetail.address,
+        .created_time = op_context.last_block_time,
+        .block_height = op_context.block_height,
+        .transaction = op_context.transaction
+    );
+}
+
+query getProductDetail(address: byte_array) {
+    return product_detail@ { .owner.id == address }(
+        name = .name,
+        metaData = .nfts_meta,
+        createdTime = .created_time,
+        updatedTime = .updated_time
+    ).to_gtv_pretty();
+}
+
+query getProductHistory(address: byte_array) {
+    val addrDetail = main.core.account.checkAddress(address);
+    require(
+        product_detail @? { .owner == addrDetail.address } != null,
+        logTile + "[Product for owner: " + addrDetail.address.id.to_hex() + " not found]"
+    );
+
+    return product_history@*{ .product.owner == addrDetail.address } (
+        eventId = .event_id,
+        metaData = .nfts_meta,
+        note = .note,
+        action = .action,
+        operator = .operator.id,
+        createdTime = .created_time,
+        blockHeight = .block_height,
+        blockRid = .transaction.block.block_rid
     );
 }

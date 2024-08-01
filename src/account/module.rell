@@ -1,7 +1,10 @@
 module;
+import main: ^.main;
 
 enum roles {
     AUO, // mint asset、xfer asset、event log
+    AUO_BROKEN_PART,
+    AUO_Inventory,
     OTHER, // xfer asset、event log
     CHANNEL, // xfer asset、event log
     WALLET // event log
@@ -14,18 +17,18 @@ entity address {
 entity address_meta {
     key address: address;
     index address: address;
-    mutable desc: text = '';
+    desc: text = ''; // Describe the type of address.
     role: roles;
-    trashed: boolean = false;
     created_time: timestamp = op_context.last_block_time;
     block_height: integer = op_context.block_height;
     index transaction: transaction = op_context.transaction;
 }
 
+
 function checkAddress(targetAddress: byte_array) {
     require(
         address @? { .id == targetAddress } != null,
-        "Contract[address: " + targetAddress.to_hex() + " not found]"
+        'Contract[Address: ' + targetAddress.to_hex() + ' not found]'
     );
 
     val addr = address @ { .id == targetAddress };
@@ -35,13 +38,39 @@ function checkAddress(targetAddress: byte_array) {
     );
 }
 
-operation register (pubkey, role: integer) {
-    require(address @?{.id == pubkey} == null, 'Address already registered');
+operation register (pubkey, role: integer, description: text) {
+    require(address @? { .id == pubkey } == null,
+        main.logSpace.title + '[pubkey: ' + pubkey.to_hex() + ' already registered]'
+    );
     log('role: ', roles.value(role));
 
     val acc = create address (pubkey);
     create address_meta(
         address = acc,
-        role = roles.value(role)
+        role = roles.value(role),
+        desc = description
     );
 }
+
+query getAddresses() {
+    return address_meta @* {} (
+        addressId = .address.id,
+        desc = .desc,
+        role = .role,
+        createdTime = .created_time
+    ).to_gtv_pretty();
+}
+
+query getAddressMeta(pubkey) {
+    return address_meta @ { .address.id == pubkey } (
+        desc = .desc,
+        role = .role,
+        createdTime = .created_time,
+        blockHeight = .block_height,
+        blockRid = .transaction.block.block_rid,
+        txRid = .transaction.tx_rid
+    ).to_gtv_pretty();
+}
+
+
+
