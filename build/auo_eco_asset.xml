@@ -1,0 +1,484 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<dict>
+    <entry key="blockstrategy">
+        <dict>
+            <entry key="name">
+                <string>net.postchain.base.BaseBlockBuildingStrategy</string>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="config_consensus_strategy">
+        <string>HEADER_HASH</string>
+    </entry>
+    <entry key="configurationfactory">
+        <string>net.postchain.gtx.GTXBlockchainConfigurationFactory</string>
+    </entry>
+    <entry key="gtx">
+        <dict>
+            <entry key="modules">
+                <array>
+                    <string>net.postchain.rell.module.RellPostchainModuleFactory</string>
+                    <string>net.postchain.gtx.StandardOpsGTXModule</string>
+                </array>
+            </entry>
+            <entry key="rell">
+                <dict>
+                    <entry key="modules">
+                        <array>
+                            <string>main</string>
+                        </array>
+                    </entry>
+                    <entry key="sources">
+                        <dict>
+                            <entry key="account/module.rell">
+                                <string>module;
+import main: ^.main;
+
+enum roles {
+    AUO, // mint asset、xfer asset、event log
+    AUO_BROKEN_PART,
+    AUO_Inventory,
+    OTHER, // xfer asset、event log
+    CHANNEL, // xfer asset、event log
+    WALLET // event log
+}
+
+entity address {
+    key id: byte_array;
+}
+
+entity address_meta {
+    key address: address;
+    index address: address;
+    desc: text = ''; // Describe the type of address.
+    role: roles;
+    created_time: timestamp = op_context.last_block_time;
+    block_height: integer = op_context.block_height;
+    index transaction: transaction = op_context.transaction;
+}
+
+
+function checkAddress(targetAddress: byte_array) {
+    require(
+        address @? { .id == targetAddress } != null,
+        'Contract[Address: ' + targetAddress.to_hex() + ' not found]'
+    );
+
+    val addr = address @ { .id == targetAddress };
+    return (
+        address = addr,
+        addrMeta = address_meta @ { .address == addr }
+    );
+}
+
+operation register (pubkey, role: integer, description: text) {
+    require(address @? { .id == pubkey } == null,
+        main.logSpace.title + '[pubkey: ' + pubkey.to_hex() + ' already registered]'
+    );
+    log('role: ', roles.value(role));
+
+    val acc = create address (pubkey);
+    create address_meta(
+        address = acc,
+        role = roles.value(role),
+        desc = description
+    );
+}
+
+query getAddresses() {
+    return address_meta @* {} (
+        addressId = .address.id,
+        desc = .desc,
+        role = .role,
+        createdTime = .created_time
+    ).to_gtv_pretty();
+}
+
+query getAddressMeta(pubkey) {
+    return address_meta @ { .address.id == pubkey } (
+        desc = .desc,
+        role = .role,
+        createdTime = .created_time,
+        blockHeight = .block_height,
+        blockRid = .transaction.block.block_rid,
+        txRid = .transaction.tx_rid
+    ).to_gtv_pretty();
+}
+
+
+
+</string>
+                            </entry>
+                            <entry key="asset/module.rell">
+                                <string>module;
+
+import main: ^.main;
+
+enum action_type {
+    MINT,
+    TRANSFER,
+    UPDATE_METADATA,
+}
+
+entity asset {
+    id: byte_array;
+    key id;
+    name: text;
+    issuer: main.core.account.address;
+    meta_data: text; // IPFS URL
+    mutable owner: main.core.account.address;
+}
+
+entity history {
+    owner: main.core.account.address;
+    asset: asset;
+    to: main.core.account.address;
+    action: action_type;
+    created_time: timestamp = op_context.last_block_time;
+    block_height: integer = op_context.block_height;
+    transaction: transaction = op_context.transaction;
+}
+
+operation mintAsset(name: text, serialId: byte_array, metaCID: text, minter: byte_array) {
+    val mintDetail = main.core.account.checkAddress(minter);
+    require(mintDetail.addrMeta.role == main.core.account.roles.AUO,
+        main.logSpace.title + "[Only minters can mint assets]"
+    );
+    require(serialId.size() &gt; 24, main.logSpace.title + '[]');
+    
+    val assetData = create asset(
+        id = serialId,
+        name = name,
+        issuer = mintDetail.address,
+        meta_data = metaCID,
+        owner = mintDetail.address
+    );
+
+    create history(
+        owner = mintDetail.address,
+        asset = assetData,
+        to = mintDetail.address,
+        action = action_type.MINT
+    );
+ }
+
+operation batchMintAssets(names: list&lt;text&gt;, serialIds: list&lt;text&gt;, metaCIDs: list&lt;text&gt;, minter: byte_array) {
+    op_context.is_signer(minter);
+
+    val minterDetail = main.core.account.checkAddress(minter);
+    require(minterDetail.addrMeta.role == main.core.account.roles.AUO,
+        main.logSpace.title + "[Only minters can mint assets]"
+    );
+    require(names.size() == metaCIDs.size() 
+        and names.size() == serialIds.size(),
+        main.logSpace.title + "[Name and meta_data array lengths do not match]"
+    );
+
+    for (i in range(names.size())) {
+        val assetData = create asset (
+            id = serialIds[i].to_bytes(),
+            name = names[i],
+            issuer = minterDetail.address,
+            meta_data = metaCIDs[i],
+            owner = minterDetail.address
+        );
+        create history (
+            owner = minterDetail.address,
+            asset = assetData,
+            to = minterDetail.address,
+            action = action_type.MINT
+        );
+    };
+}
+
+operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_array, to: byte_array) {
+    op_context.is_signer(operator);
+
+    val operatorDetail = main.core.account.checkAddress(operator);
+    require(operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
+        main.logSpace.title + '[The WALLET role does not have operation permissions]'
+    );
+
+    val fromDetail = main.core.account.checkAddress(from);
+    val toDetail = main.core.account.checkAddress(to);
+    require(asset @? {.id == assetId, .owner == fromDetail.address } != null,
+        main.logSpace.title + "[Asset ID " + assetId.to_hex() + " not owned by " + fromDetail.address.id.to_hex() + "]"
+    );
+
+    val assetData = asset @ { .id == assetId, .owner == fromDetail.address };
+    update assetData ( .owner = toDetail.address );
+
+    create history (
+        owner = fromDetail.address,
+        asset = assetData,
+        to = toDetail.address,
+        action = action_type.TRANSFER
+    );   
+}
+
+operation batchTransfer(assetIds: list&lt;byte_array&gt;, operator: byte_array, from: byte_array, to: byte_array) {
+    op_context.is_signer(operator);
+
+    val operatorDetail = main.core.account.checkAddress(operator);
+    require(operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
+        main.logSpace.title + '[The WALLET role does not have operation permissions]'
+    );
+
+    val fromDetail = main.core.account.checkAddress(from);
+    val toDetail = main.core.account.checkAddress(to);
+    for (assetId in assetIds) {
+        log('assetId:', assetId.to_hex());
+        require(asset @? { .id == assetId, .owner == fromDetail.address } != null,
+            main.logSpace.title + "[assetId: " + assetId.to_hex() + "not found]"
+        );
+
+        val assetData = asset @ { .id == assetId, .owner == fromDetail.address };
+        update assetData ( .owner = toDetail.address );
+        create history (
+            owner = fromDetail.address,
+            asset = assetData,
+            to = toDetail.address,
+            action = action_type.TRANSFER
+        );  
+    };
+}
+
+query getAssetByAddress(address: byte_array) {
+    val addrDetail = main.core.account.checkAddress(address);
+    return asset @* { .owner == addrDetail.address } (
+        id = .id,
+        name = .name,
+        issuer = .issuer.id,
+        metaData = .meta_data,
+        owner = .owner.id
+    ).to_gtv_pretty();
+}
+
+query getAssetById(assetId: byte_array) {
+    log('assetId: ', assetId);
+    val assetDetail = asset @ { .id == assetId };
+    return history@ { .asset == assetDetail, .action == action_type.MINT } (
+        id = assetDetail.id,
+        name = assetDetail.name,
+        issuer = assetDetail.issuer.id,
+        metaData = assetDetail.meta_data,
+        owner = assetDetail.owner.id,
+        createdTime = .created_time,
+        blockHeight = .block_height,
+        blockRid = .transaction.block.block_rid,
+        txRid = .transaction.tx_rid
+    ).to_gtv_pretty();
+}
+
+query getAssetMeta(assetId: byte_array) {
+    return asset@ { .id == assetId } (
+        metaData = .meta_data
+    ).to_gtv_pretty();
+}
+
+query getHistoryByAddress(address: byte_array) {
+    val addrDetail = main.core.account.checkAddress(address);
+    return history@*{ .owner == addrDetail.address } (
+        owner = .owner.id,
+        asset = .asset.id,
+        to = .to.id,
+        action = .action,
+        createdTime = .created_time,
+        blockHeight = .block_height,
+        blockRid = .transaction.block.block_rid,
+        txRid = .transaction.tx_rid
+    ).to_gtv_pretty();
+}
+
+query getHistoryByAssetId(assetId: byte_array) { // Return only the history of the asset.
+    return history@*{ .asset.id == assetId } (
+        owner = .owner.id,
+        asset = .asset.id,
+        to = .to.id,
+        action = .action,
+        createdTime = .created_time,
+        blockHeight = .block_height,
+        blockRid = .transaction.block.block_rid,
+        txRid = .transaction.tx_rid
+    ).to_gtv_pretty();
+}
+
+
+
+</string>
+                            </entry>
+                            <entry key="main.rell">
+                                <string>module;
+
+@mount('auoPanelToken')
+namespace core {
+    import account: ^.account;
+    import asset: ^.asset;
+    import product: ^.product;
+}
+
+namespace logSpace {
+    val title = 'Contract';
+}
+</string>
+                            </entry>
+                            <entry key="product/module.rell">
+                                <string>module;
+
+import main: ^.main;
+
+val logTile = 'Contract';
+
+enum product_action_type {
+    CREATE,
+    UPDATE,
+    TRASHED
+}
+
+entity product_detail {
+    key owner: main.core.account.address;
+    name: text;
+    mutable nfts_meta: text; // cid array
+    created_time: timestamp = op_context.last_block_time;
+    mutable updated_time: timestamp = op_context.last_block_time;
+}
+
+entity product_history {
+    index product: product_detail;
+    key event_id: byte_array = op_context.transaction.tx_rid;
+    nfts_meta: text; // cid array
+    note: text;
+    action: product_action_type;
+    operator: main.core.account.address;
+    created_time: timestamp = op_context.last_block_time;
+    block_height: integer = op_context.block_height;
+    transaction: transaction = op_context.transaction;
+}
+
+operation createProduct(operator: byte_array, targetAddress: byte_array, name: text, nftsMeta: text, message: text) {
+    op_context.is_signer(operator);
+    val operatorDetail = main.core.account.checkAddress(operator);
+    val targetDetail = main.core.account.checkAddress(targetAddress);
+    require(
+        targetDetail.addrMeta.role == main.core.account.roles.WALLET,
+        main.logSpace.title + "[The targetAddress:" + targetDetail.address.id.to_hex() + " does not have WALLET role permissions]"
+    );  
+
+    val productData = create product_detail(
+        .owner = targetDetail.address,
+        .name = name,
+        .nfts_meta = nftsMeta
+    );
+    create product_history (
+        .product = productData,
+        .nfts_meta = nftsMeta,
+        .note = message,
+        .action = product_action_type.CREATE,
+        .operator = operatorDetail.address
+    );
+}
+
+operation updateProductMeta(operator: byte_array, targetAddress: byte_array, nftsMeta: text, message: text) {
+    op_context.is_signer(operator);
+
+    val operatorDetail = main.core.account.checkAddress(operator);
+    val targetDetail = main.core.account.checkAddress(targetAddress);
+    require(
+        targetDetail.addrMeta.role == main.core.account.roles.WALLET,
+        main.logSpace.title + "[The targetAddress:" + targetDetail.address.id.to_hex() + " does not have WALLET role permissions]"
+    );
+
+    val productData = product_detail @ { .owner == targetDetail.address };
+    update productData (.nfts_meta = nftsMeta, updated_time = op_context.last_block_time);
+    create product_history( 
+        .product = productData,
+        .nfts_meta = nftsMeta,
+        .note = message,
+        .action = product_action_type.UPDATE,
+        .operator = operatorDetail.address
+    );
+}
+
+operation trashedProduct(operator: byte_array, owner: byte_array, message: text) {
+    op_context.is_signer(operator);
+    
+    val operatorDetail = main.core.account.checkAddress(operator);
+    require(
+        operatorDetail.addrMeta.role == main.core.account.roles.AUO,
+        main.logSpace.title + '[Operator does not have AUO role permissions]'
+    );
+    
+    val ownerDetail = main.core.account.checkAddress(owner);
+    require(
+        ownerDetail.addrMeta.role == main.core.account.roles.WALLET,
+        main.logSpace.title + "[The targetAddress: " + ownerDetail.address.id.to_hex() + " does not have WALLET role permissions]"
+    );
+
+    require(
+        product_detail @? { .owner == ownerDetail.address } != null,
+        main.logSpace.title + "[Product for owner: " + ownerDetail.address.id.to_hex() + " not found]"
+    );
+    val productDetail = product_detail@ { .owner == ownerDetail.address };
+    
+    require(
+        product_history @? { .product == productDetail, .action == product_action_type.TRASHED} != null,
+        main.logSpace.title + "[Product already trashed]"
+    );
+    val events = product_history @*{ .product == productDetail } (@sort_desc .created_time, .nfts_meta ) limit 1;
+    create product_history (
+        .product = productDetail,
+        .nfts_meta = events[0].nfts_meta, // cid array
+        .note = message,
+        .action = product_action_type.TRASHED,
+        .operator = ownerDetail.address,
+        .created_time = op_context.last_block_time,
+        .block_height = op_context.block_height,
+        .transaction = op_context.transaction
+    );
+}
+
+query getProductDetail(address: byte_array) {
+    return product_detail@ { .owner.id == address }(
+        metaData = .nfts_meta,
+        createdTime = .created_time,
+        updatedTime = .updated_time
+    ).to_gtv_pretty();
+}
+
+query getProductHistory(address: byte_array) {
+    val addrDetail = main.core.account.checkAddress(address);
+    require(
+        product_detail @? { .owner == addrDetail.address } != null,
+        logTile + "[Product for owner: " + addrDetail.address.id.to_hex() + " not found]"
+    );
+
+    return product_history@*{ .product.owner == addrDetail.address } (
+        eventId = .event_id,
+        metaData = .nfts_meta,
+        note = .note,
+        action = .action,
+        operator = .operator.id,
+        createdTime = .created_time,
+        blockHeight = .block_height,
+        blockRid = .transaction.block.block_rid,
+        tx_rid = .transaction.tx_rid
+    );
+}</string>
+                            </entry>
+                        </dict>
+                    </entry>
+                    <entry key="version">
+                        <string>0.12.0</string>
+                    </entry>
+                </dict>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="revolt">
+        <dict>
+            <entry key="fast_revolt_status_timeout">
+                <int>2000</int>
+            </entry>
+        </dict>
+    </entry>
+</dict>
