@@ -67,8 +67,13 @@ yarn
 yarn run start:debug
 ```
 
-The application will listen on port 50001. 2. Access the Swagger documentation at:
+The application will listen on port 50001. 
 
+2. Access the Swagger documentation at:
 ```bash
 http://localhost:5001/apidoc
+```
+or
+``` bash
+https://doc.snowbridge.se/auo-eco-asset/
 ```
