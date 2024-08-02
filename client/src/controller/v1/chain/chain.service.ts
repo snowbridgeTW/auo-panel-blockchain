@@ -59,7 +59,7 @@ export class ChainService {
 
             return {
                 status: receipt.status,
-                txId: receipt.transactionRid.toString('hex'),
+                txRid: receipt.transactionRid.toString('hex'),
                 timestamp: currentDate.getTime(),
             };
         } catch (err: any) {

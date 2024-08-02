@@ -244,7 +244,7 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async batchTransfer(@Body() body: BatchTransferDto): Promise<ChainResDto> {
-        this.logger.debug('call - api/v1/asset/batch-transfer');
+        this.logger.debug('Call - api/v1/asset/batch-transfer');
         const { privKey, pubKey, assetIds, from, to } = body;
         return await this.chainService.batchTransfer({
             privKey,
@@ -279,7 +279,7 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async getAssetByAddress(@Param() params: AssetByAddressDto): Promise<AssetByAddressResDto[]> {
-        this.logger.debug('call - api/v1/asset/:address');
+        this.logger.debug('Call - api/v1/asset/:address');
         const { address } = params;
         return await this.chainService.getAssetByAddress({
             address,
@@ -306,7 +306,7 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async getAssetById(@Param() params: AssetByIdDto): Promise<AssetByIdResDto> {
-        this.logger.debug('call - api/v1/asset/:assetId');
+        this.logger.debug('Call - api/v1/asset/:assetId');
         const { assetId } = params;
         return await this.chainService.getAssetById({
             assetId,
@@ -333,25 +333,45 @@ export class ChainController {
         description: 'Internal server error.',
     })
     async getAssetMeta(@Param() params: AssetByIdDto): Promise<AssetMetaResDto> {
-        this.logger.debug('call - api/v1/asset/:assetId/meta');
+        this.logger.debug('Call - api/v1/asset/:assetId/meta');
         const { assetId } = params;
         return await this.chainService.getAssetMeta({
             assetId,
         });
     }
 
+    @ApiTags('Asset')
     @Get('asset/:address/history')
+    @ApiOperation({
+        summary: 'Get asset history by address',
+        description: 'Retrieves the history of assets associated with a specific address.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved assets.',
+        type: [HistoryResDto],
+    })
     async getHistoryByAddressId(@Param() params: HistoryByAddressIdDto): Promise<HistoryResDto[]> {
-        this.logger.debug('call - api/v1/asset/:address/history');
+        this.logger.debug('Call - api/v1/asset/:address/history');
         const { address } = params;
         return await this.chainService.getHistoryByAddress({
             address,
         });
     }
 
+    @ApiTags('Asset')
     @Get('asset/:assetId/history')
+    @ApiOperation({
+        summary: 'Get asset history by asset ID',
+        description: 'Retrieves the history of a specific asset by its ID.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved assets.',
+        type: [HistoryResDto],
+    })
     async getHistoryByAssetId(@Param() params: HistoryByAssetIdDto): Promise<HistoryResDto[]> {
-        this.logger.debug('call - api/v1/asset/:assetId/history');
+        this.logger.debug('Call - api/v1/asset/:assetId/history');
         const { assetId } = params;
         return await this.chainService.getHistoryByAssetId({
             assetId,
@@ -360,8 +380,18 @@ export class ChainController {
 
     @ApiTags('Product')
     @Post('product/create')
+    @ApiOperation({
+        summary: 'Create a new product for a WALLET user',
+        description:
+            'Creates a new product for a WALLET user who has collected the required NFT components. The primary purpose is to record the metadata of the product and the NFTs it includes.',
+    })
+    @ApiResponse({
+        status: 201,
+        description: 'The product has been successfully created.',
+        type: ChainResDto,
+    })
     async createProduct(@Body() body: ProductReqDto): Promise<ChainResDto> {
-        this.logger.debug('call - api/v1/product/create');
+        this.logger.debug('Call - api/v1/product/create');
         const { privKey, pubKey, targetAddress, nftsMeta, message } = body;
         return await this.chainService.productOperaction({
             privKey,
@@ -375,8 +405,18 @@ export class ChainController {
 
     @ApiTags('Product')
     @Post('product/update-meta')
+    @ApiOperation({
+        summary: 'Update product metadata after an NFT component replacement',
+        description:
+            'Updates the metadata of a product after an NFT component has been replaced. The primary purpose is to update the list of NFTs in the metadata.',
+    })
+    @ApiResponse({
+        status: 201,
+        description: 'The product metadata has been successfully updated.',
+        type: ChainResDto,
+    })
     async updateProductMeta(@Body() body: ProductReqDto): Promise<ChainResDto> {
-        this.logger.debug('call - api/v1/product/create');
+        this.logger.debug('Call - api/v1/product/update-meta');
         const { privKey, pubKey, targetAddress, nftsMeta, message } = body;
         return await this.chainService.productOperaction({
             privKey,
@@ -390,6 +430,15 @@ export class ChainController {
 
     @ApiTags('Product')
     @Post('product/trashed')
+    @ApiOperation({
+        summary: 'Mark product as trashed',
+        description: 'Marks a product as trashed with the provided message.',
+    })
+    @ApiResponse({
+        status: 201,
+        description: 'The product has been successfully marked as trashed.',
+        type: ChainResDto,
+    })
     async trashedProduct(@Body() body: TrashedProductReqDto): Promise<ChainResDto> {
         this.logger.debug('call - api/v1/product/trashed');
         const { privKey, pubKey, owner, message } = body;
@@ -401,18 +450,38 @@ export class ChainController {
         });
     }
 
+    @ApiTags('Product')
     @Get('product/:address/detail')
+    @ApiOperation({
+        summary: 'Get product details',
+        description: 'Retrieves the details of a product by its address.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved product details.',
+        type: ProductDetailResDto,
+    })
     async getProductDetail(@Param() params: ProductByAddressReqDto): Promise<ProductDetailResDto> {
-        this.logger.debug('call - api/v1/asset/:assetId/detail');
+        this.logger.debug('Call - api/v1/product/:address/detail');
         const { address } = params;
         return await this.chainService.getProductDetail({
             address,
         });
     }
 
+    @ApiTags('Product')
     @Get('product/:address/history')
+    @ApiOperation({
+        summary: 'Get product history',
+        description: 'Retrieves the history of a product by its address.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved product history.',
+        type: [ProductHistoryResDto],
+    })
     async getProductHistory(@Param() params: ProductByAddressReqDto): Promise<ProductHistoryResDto[]> {
-        this.logger.debug('call - api/v1/asset/:assetId/history');
+        this.logger.debug('Call - api/v1/product/:address/history');
         const { address } = params;
         return await this.chainService.getProductHistory({
             address,

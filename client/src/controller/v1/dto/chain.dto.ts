@@ -13,10 +13,10 @@ export class ChainResDto {
     @ApiProperty({
         required: true,
         description: 'Transaction RID',
-        example: 'be66e8a753b193ead8834912f1dbe1b555e390e5b5d65816a5f6164c08fd3aab',
+        example: '1cd718b59381ae8c302d1d6f62c8a1b434fcbbdbe44eb25ba2a05a18dca4dd36',
     })
     @IsString()
-    txId: string;
+    txRid: string;
 
     @ApiProperty({
         required: true,

@@ -90,7 +90,7 @@ export class AddressResDto {
     @ApiProperty({
         required: true,
         description: `The block RID, represented as a hexadecimal string`,
-        example: '03a2f61668a1aee43262d1d0dcf083237a34d63f1fe5668d0f09bf1e77d0a78dbf',
+        example: '4e7ebf7bde52f325f25400529524c9e0b30872258db686e59188348abacb7a0a',
         type: String,
     })
     @IsString()
@@ -99,7 +99,7 @@ export class AddressResDto {
     @ApiProperty({
         required: true,
         description: `The transaction RID, represented as a hexadecimal string`,
-        example: '03a2f61668a1aee43262d1d0dcf083237a34d63f1fe5668d0f09bf1e77d0a78dbf',
+        example: '1cd718b59381ae8c302d1d6f62c8a1b434fcbbdbe44eb25ba2a05a18dca4dd36',
         type: String,
     })
     @IsString()

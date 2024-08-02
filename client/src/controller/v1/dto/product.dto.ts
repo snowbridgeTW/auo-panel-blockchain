@@ -51,7 +51,7 @@ export class ProductByAddressReqDto {
     @ApiProperty({
         required: true,
         description: 'The wallet ID of the product',
-        example: '0228c9c672757275923be466224694a4c5ed5c3ca1a9a1a07d3a4670d9fcfb1286',
+        example: '03a2f61668a1aee43262d1d0dcf083237a34d63f1fe5668d0f09bf1e77d0a78dbf',
     })
     @IsString()
     address: string;
@@ -87,7 +87,7 @@ export class ProductHistoryResDto {
     @ApiProperty({
         required: true,
         description: 'The event ID related to the product',
-        example: '03a2f61668a1aee43262d1d0dcf083237a34d63f1fe5668d0f09bf1e77d0a78dbf',
+        example: '91cb23932c57f7abcd30f79b01657d1f733099555727872d950ebd6736eb70dd',
     })
     @IsString()
     eventId: string;
@@ -143,7 +143,7 @@ export class ProductHistoryResDto {
     @ApiProperty({
         required: true,
         description: 'The block RID at which the action was recorded',
-        example: '03a2f61668a1aee43262d1d0dcf083237a34d63f1fe5668d0f09bf1e77d0a78dbf',
+        example: '4e7ebf7bde52f325f25400529524c9e0b30872258db686e59188348abacb7a0a',
     })
     @IsString()
     blockRid: string;
