@@ -8,12 +8,19 @@ enum action_type {
     UPDATE_METADATA,
 }
 
+enum asset_type {
+    TCON,
+    BLU,
+    FHD_CELL,
+    QHD_CELL,
+    UHD_CELL
+}
+
 entity asset {
-    id: byte_array;
-    key id;
-    name: text;
+    key id: byte_array;
+    type: asset_type;
     issuer: main.core.account.address;
-    meta_data: text; // IPFS URL
+    meta_data: text; // JSON
     mutable owner: main.core.account.address;
 }
 
@@ -27,69 +34,90 @@ entity history {
     transaction: transaction = op_context.transaction;
 }
 
-operation mintAsset(name: text, serialId: byte_array, metaCID: text, minter: byte_array) {
+operation mintAsset(assetType: text, serialId: byte_array, metadata: text, minter: byte_array) {
     val mintDetail = main.core.account.checkAddress(minter);
-    require(mintDetail.addrMeta.role == main.core.account.roles.AUO,
+    log('mintId:', mintDetail.address.id);
+    log('role:', mintDetail.addrMeta.role);
+
+    require(
+        mintDetail.addrMeta.role == main.core.account.roles.AUO,
         main.logSpace.title + "[Only minters can mint assets]"
     );
-    require(serialId.size() > 24, main.logSpace.title + '[]');
-    
-    val assetData = create asset(
+    require(
+        asset @? {
+            .id == serialId
+        } == null,
+        main
+            .logSpace
+            .title + "[serialId: + " + serialId + " already exists]"
+    );
+
+    val assetData = create asset (
         id = serialId,
-        name = name,
+        type = asset_type.value(assetType),
         issuer = mintDetail.address,
-        meta_data = metaCID,
+        meta_data = metadata,
         owner = mintDetail.address
     );
 
-    create history(
+    create history (
         owner = mintDetail.address,
         asset = assetData,
         to = mintDetail.address,
         action = action_type.MINT
     );
- }
+}
 
-operation batchMintAssets(names: list<text>, serialIds: list<text>, metaCIDs: list<text>, minter: byte_array) {
+operation batchMintAssets(assetTypes: list<text>, serialIds: list<text>, metaList: list<text>, minter: byte_array) {
     op_context.is_signer(minter);
 
     val minterDetail = main.core.account.checkAddress(minter);
-    require(minterDetail.addrMeta.role == main.core.account.roles.AUO,
+    require(
+        minterDetail.addrMeta.role == main.core.account.roles.AUO,
         main.logSpace.title + "[Only minters can mint assets]"
     );
-    require(names.size() == metaCIDs.size() 
-        and names.size() == serialIds.size(),
+    require(
+        assetTypes.size() == metaList.size() and assetTypes.size() == serialIds.size(),
         main.logSpace.title + "[Name and meta_data array lengths do not match]"
     );
 
-    for (i in range(names.size())) {
-        val assetData = create asset (
-            id = serialIds[i].to_bytes(),
-            name = names[i],
-            issuer = minterDetail.address,
-            meta_data = metaCIDs[i],
-            owner = minterDetail.address
-        );
-        create history (
-            owner = minterDetail.address,
-            asset = assetData,
-            to = minterDetail.address,
-            action = action_type.MINT
-        );
-    };
+    for (i in range(assetTypes.size())) {
+        if (asset @? { .id == serialIds[i].to_bytes() } != null) {
+            log(
+                'assetId: ' + serialIds[i] + ' duplicate key'
+            );
+        } else {
+            val assetData = create asset (
+                id = serialIds[i].to_bytes(),
+                type = asset_type.value(assetTypes[i]),
+                issuer = minterDetail.address,
+                meta_data = metaList[i],
+                owner = minterDetail.address
+            );
+            create history (
+                owner = minterDetail.address,
+                asset = assetData,
+                to = minterDetail.address,
+                action = action_type.MINT
+            );
+        }
+    }
+    ;
 }
 
 operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_array, to: byte_array) {
     op_context.is_signer(operator);
 
     val operatorDetail = main.core.account.checkAddress(operator);
-    require(operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
+    require(
+        operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
         main.logSpace.title + '[The WALLET role does not have operation permissions]'
     );
 
     val fromDetail = main.core.account.checkAddress(from);
     val toDetail = main.core.account.checkAddress(to);
-    require(asset @? {.id == assetId, .owner == fromDetail.address } != null,
+    require(
+        asset @? { .id == assetId, .owner == fromDetail.address } != null,
         main.logSpace.title + "[Asset ID " + assetId.to_hex() + " not owned by " + fromDetail.address.id.to_hex() + "]"
     );
 
@@ -101,23 +129,28 @@ operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_ar
         asset = assetData,
         to = toDetail.address,
         action = action_type.TRANSFER
-    );   
+    );
 }
 
 operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: byte_array, to: byte_array) {
     op_context.is_signer(operator);
-
+    log('assetIds: ', assetIds);
+    log('operator: ', operator);
+    log('from: ', from);
+    log('to: ', to);
     val operatorDetail = main.core.account.checkAddress(operator);
-    require(operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
+    require(
+        operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
         main.logSpace.title + '[The WALLET role does not have operation permissions]'
     );
 
     val fromDetail = main.core.account.checkAddress(from);
     val toDetail = main.core.account.checkAddress(to);
     for (assetId in assetIds) {
-        log('assetId:', assetId.to_hex());
-        require(asset @? { .id == assetId, .owner == fromDetail.address } != null,
-            main.logSpace.title + "[assetId: " + assetId.to_hex() + "not found]"
+        log('assetId:', assetId);
+        require(
+            asset @? { .id == assetId, .owner == fromDetail.address } != null,
+            main.logSpace.title + "[assetId: " + assetId + "not found]"
         );
 
         val assetData = asset @ { .id == assetId, .owner == fromDetail.address };
@@ -127,15 +160,16 @@ operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: 
             asset = assetData,
             to = toDetail.address,
             action = action_type.TRANSFER
-        );  
-    };
+        );
+    }
+    ;
 }
 
 query getAssetByAddress(address: byte_array) {
     val addrDetail = main.core.account.checkAddress(address);
     return asset @* { .owner == addrDetail.address } (
         id = .id,
-        name = .name,
+        type = .type,
         issuer = .issuer.id,
         metaData = .meta_data,
         owner = .owner.id
@@ -145,9 +179,9 @@ query getAssetByAddress(address: byte_array) {
 query getAssetById(assetId: byte_array) {
     log('assetId: ', assetId);
     val assetDetail = asset @ { .id == assetId };
-    return history@ { .asset == assetDetail, .action == action_type.MINT } (
+    return history @ { .asset == assetDetail, .action == action_type.MINT } (
         id = assetDetail.id,
-        name = assetDetail.name,
+        type = assetDetail.type,
         issuer = assetDetail.issuer.id,
         metaData = assetDetail.meta_data,
         owner = assetDetail.owner.id,
@@ -159,14 +193,14 @@ query getAssetById(assetId: byte_array) {
 }
 
 query getAssetMeta(assetId: byte_array) {
-    return asset@ { .id == assetId } (
+    return asset @ { .id == assetId } (
         metaData = .meta_data
     ).to_gtv_pretty();
 }
 
 query getHistoryByAddress(address: byte_array) {
     val addrDetail = main.core.account.checkAddress(address);
-    return history@*{ .owner == addrDetail.address } (
+    return history @* { .owner == addrDetail.address } (
         owner = .owner.id,
         asset = .asset.id,
         to = .to.id,
@@ -179,7 +213,7 @@ query getHistoryByAddress(address: byte_array) {
 }
 
 query getHistoryByAssetId(assetId: byte_array) { // Return only the history of the asset.
-    return history@*{ .asset.id == assetId } (
+    return history @* { .asset.id == assetId } (
         owner = .owner.id,
         asset = .asset.id,
         to = .to.id,
@@ -190,6 +224,3 @@ query getHistoryByAssetId(assetId: byte_array) { // Return only the history of t
         txRid = .transaction.tx_rid
     ).to_gtv_pretty();
 }
-
-
-

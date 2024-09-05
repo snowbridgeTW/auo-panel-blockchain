@@ -1,4 +1,5 @@
 module;
+
 import main: ^.main;
 
 enum roles {
@@ -7,7 +8,8 @@ enum roles {
     AUO_Inventory,
     OTHER, // xfer asset、event log
     CHANNEL, // xfer asset、event log
-    WALLET // event log
+    WALLET
+// event log
 }
 
 entity address {
@@ -24,7 +26,6 @@ entity address_meta {
     index transaction: transaction = op_context.transaction;
 }
 
-
 function checkAddress(targetAddress: byte_array) {
     require(
         address @? { .id == targetAddress } != null,
@@ -38,14 +39,16 @@ function checkAddress(targetAddress: byte_array) {
     );
 }
 
-operation register (pubkey, role: integer, description: text) {
-    require(address @? { .id == pubkey } == null,
+operation register(pubkey, role: integer, description: text) {
+    require(
+        address @? { .id == pubkey } == null,
         main.logSpace.title + '[pubkey: ' + pubkey.to_hex() + ' already registered]'
     );
+    log('register pub: ', pubkey);
     log('role: ', roles.value(role));
 
-    val acc = create address (pubkey);
-    create address_meta(
+    val acc = create address ( pubkey );
+    create address_meta (
         address = acc,
         role = roles.value(role),
         desc = description
@@ -53,7 +56,7 @@ operation register (pubkey, role: integer, description: text) {
 }
 
 query getAddresses() {
-    return address_meta @* {} (
+    return address_meta @* { } (
         addressId = .address.id,
         desc = .desc,
         role = .role,
@@ -71,6 +74,3 @@ query getAddressMeta(pubkey) {
         txRid = .transaction.tx_rid
     ).to_gtv_pretty();
 }
-
-
-

@@ -12,8 +12,7 @@ enum product_action_type {
 
 entity product_detail {
     key owner: main.core.account.address;
-    name: text;
-    mutable nfts_meta: text; // cid array
+    key id: text;// mutable nfts_meta: text; // 
     created_time: timestamp = op_context.last_block_time;
     mutable updated_time: timestamp = op_context.last_block_time;
 }
@@ -21,8 +20,8 @@ entity product_detail {
 entity product_history {
     index product: product_detail;
     key event_id: byte_array = op_context.transaction.tx_rid;
-    nfts_meta: text; // cid array
-    note: text;
+    message: text;
+    // note: text;
     action: product_action_type;
     operator: main.core.account.address;
     created_time: timestamp = op_context.last_block_time;
@@ -30,95 +29,192 @@ entity product_history {
     transaction: transaction = op_context.transaction;
 }
 
-operation createProduct(operator: byte_array, targetAddress: byte_array, name: text, nftsMeta: text, message: text) {
+operation createProduct(operator: byte_array, targetAddress: byte_array, productId: text, message: text) {
     op_context.is_signer(operator);
     val operatorDetail = main.core.account.checkAddress(operator);
     val targetDetail = main.core.account.checkAddress(targetAddress);
     require(
         targetDetail.addrMeta.role == main.core.account.roles.WALLET,
-        main.logSpace.title + "[The targetAddress:" + targetDetail.address.id.to_hex() + " does not have WALLET role permissions]"
-    );  
+        main
+            .logSpace
+            .title + "[The targetAddress:" + targetDetail
+            .address
+            .id
+            .to_hex() + " does not have WALLET role permissions]"
+    );
 
-    val productData = create product_detail(
+    val productData = create product_detail (
         .owner = targetDetail.address,
-        .name = name,
-        .nfts_meta = nftsMeta
+        .id = productId
+    // .nfts_meta = nftsMeta
     );
     create product_history (
         .product = productData,
-        .nfts_meta = nftsMeta,
-        .note = message,
+        // .nfts_meta = nftsMeta,
+        .message = message,
         .action = product_action_type.CREATE,
         .operator = operatorDetail.address
     );
 }
 
-operation updateProductMeta(operator: byte_array, targetAddress: byte_array, nftsMeta: text, message: text) {
+// 替換產品零件功能
+operation replaceProductAsset(
+    operator: byte_array,
+    productId: text,
+    targetAssetId: byte_array,
+    newAssetId: byte_array
+) {
     op_context.is_signer(operator);
-
-    val operatorDetail = main.core.account.checkAddress(operator);
-    val targetDetail = main.core.account.checkAddress(targetAddress);
     require(
-        targetDetail.addrMeta.role == main.core.account.roles.WALLET,
-        main.logSpace.title + "[The targetAddress:" + targetDetail.address.id.to_hex() + " does not have WALLET role permissions]"
+        product_detail @? {
+            .id == productId
+        } != null,
+        main
+            .logSpace
+            .title + "[productId: " + productId + " not found]"
+    );
+    require(
+        (
+                main
+                .core
+                .asset
+                    .asset @* {
+                    .id == targetAssetId
+                }
+            )
+            .size() > 0,
+        main
+            .logSpace
+            .title + "[targetAssetId: " + targetAssetId + " ]"
+    );
+    require(
+        (
+                main
+                .core
+                .asset
+                    .asset @* {
+                    .id == newAssetId
+                }
+            )
+            .size() > 0,
+        main
+            .logSpace
+            .title + "[targetAssetId: " + newAssetId + " ]"
     );
 
-    val productData = product_detail @ { .owner == targetDetail.address };
-    update productData (.nfts_meta = nftsMeta, updated_time = op_context.last_block_time);
-    create product_history( 
-        .product = productData,
-        .nfts_meta = nftsMeta,
-        .note = message,
+    val op = main.core.account.checkAddress(operator); // 操作者資訊
+    val product = product_detail @ { .id == productId }; // 產品資訊
+    val productOwner = product.owner;
+
+    // 預廢棄資產資訊
+    val preReplaceAsset = main.core.asset.asset @ { .id == targetAssetId };
+    val preReplaceAssetOwner = preReplaceAsset.owner;
+
+    val newAsset = main.core.asset.asset @ { .id == newAssetId };
+    val newAssetOwner = newAsset.owner;
+
+    val burnWallet = main.core.account.address_meta @* {
+            .role == op.addrMeta.role,
+            .desc == op.addrMeta.role.name + 
+            '_BURN_' +
+            preReplaceAsset.type.name
+        } limit 1;
+
+    update preReplaceAsset ( .owner = burnWallet[0].address ); //報廢資產
+    create main.core.asset.history ( //寫上資產轉移紀錄
+        .owner = preReplaceAssetOwner,
+        .asset = preReplaceAsset,
+        .to = burnWallet[0].address,
+        .action = main.core.asset.action_type.TRANSFER
+    );
+    create product_history ( //寫上錢包轉移資產紀錄
+        .product = product,
+        .message = 'burn assetId: ' + preReplaceAsset.id,
         .action = product_action_type.UPDATE,
-        .operator = operatorDetail.address
+        .operator = op.address
+    );
+
+    update newAsset ( .owner = productOwner ); // 資產持有者更換成產品擁有者
+    create main.core.asset.history ( //寫上新資產的轉移紀錄
+        .owner = newAssetOwner,
+        .asset = newAsset,
+        .to = productOwner,
+        .action = main.core.asset.action_type.TRANSFER
+    );
+    create product_history ( //寫上產品新增資產紀錄
+        .product = product,
+        .message = 'add assetId: ' + newAsset.id,
+        .action = product_action_type.UPDATE,
+        .operator = op.address
     );
 }
 
-operation trashedProduct(operator: byte_array, owner: byte_array, message: text) {
+operation trashedProduct(operator: byte_array, productId: text, message: text) {
     op_context.is_signer(operator);
-    
+
     val operatorDetail = main.core.account.checkAddress(operator);
     require(
         operatorDetail.addrMeta.role == main.core.account.roles.AUO,
         main.logSpace.title + '[Operator does not have AUO role permissions]'
     );
-    
-    val ownerDetail = main.core.account.checkAddress(owner);
-    require(
-        ownerDetail.addrMeta.role == main.core.account.roles.WALLET,
-        main.logSpace.title + "[The targetAddress: " + ownerDetail.address.id.to_hex() + " does not have WALLET role permissions]"
-    );
 
     require(
-        product_detail @? { .owner == ownerDetail.address } != null,
-        main.logSpace.title + "[Product for owner: " + ownerDetail.address.id.to_hex() + " not found]"
+        product_detail @? { .id == productId } != null,
+        main.logSpace.title + "[ProductId: " + productId + " not found]"
     );
-    val productDetail = product_detail@ { .owner == ownerDetail.address };
-    
+    val productDetail = product_detail @ { .id == productId };
+
     require(
-        product_history @? { .product == productDetail, .action == product_action_type.TRASHED} != null,
+        product_history @? { .product == productDetail, .action == product_action_type.TRASHED } != null,
         main.logSpace.title + "[Product already trashed]"
     );
-    val events = product_history @*{ .product == productDetail } (@sort_desc .created_time, .nfts_meta ) limit 1;
+
+    val events = product_history @* { .product == productDetail } ( @sort_desc .created_time ) limit 1;
     create product_history (
         .product = productDetail,
-        .nfts_meta = events[0].nfts_meta, // cid array
-        .note = message,
+        .message = message,
         .action = product_action_type.TRASHED,
-        .operator = ownerDetail.address,
+        .operator = operatorDetail.address,
         .created_time = op_context.last_block_time,
         .block_height = op_context.block_height,
         .transaction = op_context.transaction
     );
 }
 
-query getProductDetail(address: byte_array) {
-    return product_detail@ { .owner.id == address }(
-        name = .name,
-        metaData = .nfts_meta,
-        createdTime = .created_time,
-        updatedTime = .updated_time
+// query getProductDetail(address: byte_array) {
+//     return product_detail@ { .owner.id == address }(
+//         id = .id,
+//         metaData = .nfts_meta,
+//         createdTime = .created_time,
+//         updatedTime = .updated_time
+//     ).to_gtv_pretty();
+// }
+query getProductOwner(productId: text) {
+    require(product_detail @? { .id == productId } != null, logTile + "[productId: " + productId + " not found]");
+    return product_detail @ { .id == productId } (
+        ownerPubkey = .owner.id
     ).to_gtv_pretty();
+}
+
+query getAssetDetailList(pubkey, type: text) {
+    return main.core.asset.asset @* { .owner.id == pubkey, .type == main.core.asset.asset_type.value(type) } (
+            id = .id,
+            type = .type.name,
+            issuer = .issuer,
+            metadata = .meta_data
+        ).to_gtv_pretty();
+}
+
+query getAssetListByProductId(productId: text) {
+    require(product_detail @? { .id == productId } != null, logTile + "[productId: " + productId + " not found]");
+    val productDetail = product_detail @ { .id == productId };
+    val owner = productDetail.owner;
+    return main.core.asset.asset @* { .owner == owner } (
+            id = .id,
+            type = .type.value,
+            metadata = .meta_data,
+            owner = .owner
+        ).to_gtv_pretty();
 }
 
 query getProductHistory(address: byte_array) {
@@ -128,10 +224,10 @@ query getProductHistory(address: byte_array) {
         logTile + "[Product for owner: " + addrDetail.address.id.to_hex() + " not found]"
     );
 
-    return product_history@*{ .product.owner == addrDetail.address } (
+    return product_history @* { .product.owner == addrDetail.address } (
         eventId = .event_id,
-        metaData = .nfts_meta,
-        note = .note,
+        // metaData = .nfts_meta,
+        message = .message,
         action = .action,
         operator = .operator.id,
         createdTime = .created_time,
