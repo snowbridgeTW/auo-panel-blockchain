@@ -283,6 +283,9 @@ operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_ar
 operation batchTransfer(assetIds: list&lt;byte_array&gt;, operator: byte_array, from: byte_array, to: byte_array) {
     op_context.is_signer(operator);
     log('assetIds: ', assetIds);
+    log('operator: ', operator);
+    log('from: ', from);
+    log('to: ', to);
     val operatorDetail = main.core.account.checkAddress(operator);
     require(
         operatorDetail.addrMeta.role != main.core.account.roles.WALLET,
@@ -292,10 +295,11 @@ operation batchTransfer(assetIds: list&lt;byte_array&gt;, operator: byte_array, 
     val fromDetail = main.core.account.checkAddress(from);
     val toDetail = main.core.account.checkAddress(to);
     for (assetId in assetIds) {
-        log('assetId:', assetId.to_hex());
+        log('assetId:', assetId);
+        log('address:', fromDetail.address.id);
         require(
             asset @? { .id == assetId, .owner == fromDetail.address } != null,
-            main.logSpace.title + "[assetId: " + assetId.to_hex() + "not found]"
+            main.logSpace.title + "[assetId: " + assetId + "not found]"
         );
 
         val assetData = asset @ { .id == assetId, .owner == fromDetail.address };
@@ -408,7 +412,7 @@ entity product_detail {
 
 entity product_history {
     index product: product_detail;
-    key event_id: byte_array = op_context.transaction.tx_rid;
+    key event_id: byte_array = ("event_" + op_context.transaction.tx_rid.to_hex()).to_bytes();
     message: text;
     // note: text;
     action: product_action_type;
@@ -531,6 +535,7 @@ operation replaceProductAsset(
         .action = main.core.asset.action_type.TRANSFER
     );
     create product_history ( //寫上產品新增資產紀錄
+        .event_id = ("event_" + op_context.transaction.tx_rid.to_hex() + "_1").to_bytes(),
         .product = product,
         .message = 'add assetId: ' + newAsset.id,
         .action = product_action_type.UPDATE,

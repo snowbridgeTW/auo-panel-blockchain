@@ -19,7 +19,7 @@ entity product_detail {
 
 entity product_history {
     index product: product_detail;
-    key event_id: byte_array = op_context.transaction.tx_rid;
+    key event_id: byte_array = ("event_" + op_context.transaction.tx_rid.to_hex()).to_bytes();
     message: text;
     // note: text;
     action: product_action_type;
@@ -142,6 +142,7 @@ operation replaceProductAsset(
         .action = main.core.asset.action_type.TRANSFER
     );
     create product_history ( //寫上產品新增資產紀錄
+        .event_id = ("event_" + op_context.transaction.tx_rid.to_hex() + "_1").to_bytes(),
         .product = product,
         .message = 'add assetId: ' + newAsset.id,
         .action = product_action_type.UPDATE,

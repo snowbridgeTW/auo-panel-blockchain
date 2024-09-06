@@ -148,6 +148,7 @@ operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: 
     val toDetail = main.core.account.checkAddress(to);
     for (assetId in assetIds) {
         log('assetId:', assetId);
+        log('address:', fromDetail.address.id);
         require(
             asset @? { .id == assetId, .owner == fromDetail.address } != null,
             main.logSpace.title + "[assetId: " + assetId + "not found]"
