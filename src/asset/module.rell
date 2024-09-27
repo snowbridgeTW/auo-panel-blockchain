@@ -20,6 +20,7 @@ entity asset {
     key id: byte_array;
     type: asset_type;
     issuer: main.core.account.address;
+    part_number: text;
     meta_data: text; // JSON
     mutable owner: main.core.account.address;
 }
@@ -34,7 +35,7 @@ entity history {
     transaction: transaction = op_context.transaction;
 }
 
-operation mintAsset(assetType: text, serialId: byte_array, metadata: text, minter: byte_array) {
+operation mintAsset(assetType: text, serialId: byte_array, partNumber: text, metadata: text, minter: byte_array) {
     val mintDetail = main.core.account.checkAddress(minter);
     log('mintId:', mintDetail.address.id);
     log('role:', mintDetail.addrMeta.role);
@@ -56,6 +57,7 @@ operation mintAsset(assetType: text, serialId: byte_array, metadata: text, minte
         id = serialId,
         type = asset_type.value(assetType),
         issuer = mintDetail.address,
+        part_number = partNumber,
         meta_data = metadata,
         owner = mintDetail.address
     );
@@ -68,7 +70,13 @@ operation mintAsset(assetType: text, serialId: byte_array, metadata: text, minte
     );
 }
 
-operation batchMintAssets(assetTypes: list<text>, serialIds: list<text>, metaList: list<text>, minter: byte_array) {
+operation batchMintAssets(
+    assetTypes: list<text>,
+    serialIds: list<text>,
+    partNumbers: list<text>,
+    metaList: list<text>,
+    minter: byte_array
+) {
     op_context.is_signer(minter);
 
     val minterDetail = main.core.account.checkAddress(minter);
@@ -91,6 +99,7 @@ operation batchMintAssets(assetTypes: list<text>, serialIds: list<text>, metaLis
                 id = serialIds[i].to_bytes(),
                 type = asset_type.value(assetTypes[i]),
                 issuer = minterDetail.address,
+                part_number = partNumbers[i],
                 meta_data = metaList[i],
                 owner = minterDetail.address
             );
@@ -169,10 +178,10 @@ operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: 
 query getAssetByAddress(address: byte_array) {
     val addrDetail = main.core.account.checkAddress(address);
     return asset @* { .owner == addrDetail.address } (
-        id = .id,
+        assetId = .id,
         type = .type,
+        partNumber = .part_number,
         issuer = .issuer.id,
-        metaData = .meta_data,
         owner = .owner.id
     ).to_gtv_pretty();
 }
