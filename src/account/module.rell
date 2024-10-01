@@ -13,7 +13,7 @@ enum roles {
 }
 
 entity address {
-    key id: byte_array;
+    key id: text;
 }
 
 entity address_meta {
@@ -26,10 +26,10 @@ entity address_meta {
     index transaction: transaction = op_context.transaction;
 }
 
-function checkAddress(targetAddress: byte_array) {
+function checkAddress(targetAddress: text) {
     require(
         address @? { .id == targetAddress } != null,
-        'Contract[Address: ' + targetAddress.to_hex() + ' not found]'
+        'Contract[Address: ' + targetAddress + ' not found]'
     );
 
     val addr = address @ { .id == targetAddress };
@@ -39,10 +39,10 @@ function checkAddress(targetAddress: byte_array) {
     );
 }
 
-operation register(pubkey, role: integer, description: text) {
+operation register(pubkey: text, role: integer, description: text) {
     require(
         address @? { .id == pubkey } == null,
-        main.logSpace.title + '[pubkey: ' + pubkey.to_hex() + ' already registered]'
+        main.logSpace.title + '[pubkey: ' + pubkey + ' already registered]'
     );
     log('register pub: ', pubkey);
     log('role: ', roles.value(role));
@@ -64,7 +64,7 @@ query getAddresses() {
     ).to_gtv_pretty();
 }
 
-query getAddressMeta(pubkey) {
+query getAddressMeta(pubkey: text) {
     return address_meta @ { .address.id == pubkey } (
         desc = .desc,
         role = .role,

@@ -17,12 +17,13 @@ enum asset_type {
 }
 
 entity asset {
-    key id: byte_array;
+    key id: text;
     type: asset_type;
     issuer: main.core.account.address;
     part_number: text;
     meta_data: text; // JSON
     mutable owner: main.core.account.address;
+    create_time: timestamp = op_context.last_block_time;
 }
 
 entity history {
@@ -35,7 +36,7 @@ entity history {
     transaction: transaction = op_context.transaction;
 }
 
-operation mintAsset(assetType: text, serialId: byte_array, partNumber: text, metadata: text, minter: byte_array) {
+operation mintAsset(assetType: text, serialId: text, partNumber: text, metadata: text, minter: text) {
     val mintDetail = main.core.account.checkAddress(minter);
     log('mintId:', mintDetail.address.id);
     log('role:', mintDetail.addrMeta.role);
@@ -75,9 +76,9 @@ operation batchMintAssets(
     serialIds: list<text>,
     partNumbers: list<text>,
     metaList: list<text>,
-    minter: byte_array
+    minter: text
 ) {
-    op_context.is_signer(minter);
+    op_context.is_signer(minter.to_bytes());
 
     val minterDetail = main.core.account.checkAddress(minter);
     require(
@@ -90,13 +91,13 @@ operation batchMintAssets(
     );
 
     for (i in range(assetTypes.size())) {
-        if (asset @? { .id == serialIds[i].to_bytes() } != null) {
+        if (asset @? { .id == serialIds[i] } != null) {
             log(
                 'assetId: ' + serialIds[i] + ' duplicate key'
             );
         } else {
             val assetData = create asset (
-                id = serialIds[i].to_bytes(),
+                id = serialIds[i],
                 type = asset_type.value(assetTypes[i]),
                 issuer = minterDetail.address,
                 part_number = partNumbers[i],
@@ -114,8 +115,8 @@ operation batchMintAssets(
     ;
 }
 
-operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_array, to: byte_array) {
-    op_context.is_signer(operator);
+operation transferAsset(assetId: text, operator: text, from: text, to: text) {
+    op_context.is_signer(operator.to_bytes());
 
     val operatorDetail = main.core.account.checkAddress(operator);
     require(
@@ -127,7 +128,7 @@ operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_ar
     val toDetail = main.core.account.checkAddress(to);
     require(
         asset @? { .id == assetId, .owner == fromDetail.address } != null,
-        main.logSpace.title + "[Asset ID " + assetId.to_hex() + " not owned by " + fromDetail.address.id.to_hex() + "]"
+        main.logSpace.title + "[Asset ID " + assetId + " not owned by " + fromDetail.address.id + "]"
     );
 
     val assetData = asset @ { .id == assetId, .owner == fromDetail.address };
@@ -141,8 +142,8 @@ operation transferAsset(assetId: byte_array, operator: byte_array, from: byte_ar
     );
 }
 
-operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: byte_array, to: byte_array) {
-    op_context.is_signer(operator);
+operation batchTransfer(assetIds: list<text>, operator: text, from: text, to: text) {
+    op_context.is_signer(operator.to_bytes());
     log('assetIds: ', assetIds);
     log('operator: ', operator);
     log('from: ', from);
@@ -175,18 +176,19 @@ operation batchTransfer(assetIds: list<byte_array>, operator: byte_array, from: 
     ;
 }
 
-query getAssetByAddress(address: byte_array) {
+query getAssetByAddress(address: text) {
     val addrDetail = main.core.account.checkAddress(address);
     return asset @* { .owner == addrDetail.address } (
         assetId = .id,
         type = .type,
         partNumber = .part_number,
         issuer = .issuer.id,
-        owner = .owner.id
+        owner = .owner.id,
+        createAt = .create_time
     ).to_gtv_pretty();
 }
 
-query getAssetById(assetId: byte_array) {
+query getAssetById(assetId: text) {
     log('assetId: ', assetId);
     val assetDetail = asset @ { .id == assetId };
     return history @ { .asset == assetDetail, .action == action_type.MINT } (
@@ -202,13 +204,13 @@ query getAssetById(assetId: byte_array) {
     ).to_gtv_pretty();
 }
 
-query getAssetMeta(assetId: byte_array) {
+query getAssetMeta(assetId: text) {
     return asset @ { .id == assetId } (
         metaData = .meta_data
     ).to_gtv_pretty();
 }
 
-query getHistoryByAddress(address: byte_array) {
+query getHistoryByAddress(address: text) {
     val addrDetail = main.core.account.checkAddress(address);
     return history @* { .owner == addrDetail.address } (
         owner = .owner.id,
@@ -222,7 +224,7 @@ query getHistoryByAddress(address: byte_array) {
     ).to_gtv_pretty();
 }
 
-query getHistoryByAssetId(assetId: byte_array) { // Return only the history of the asset.
+query getHistoryByAssetId(assetId: text) { // Return only the history of the asset.
     return history @* { .asset.id == assetId } (
         owner = .owner.id,
         asset = .asset.id,

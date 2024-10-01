@@ -19,7 +19,7 @@ entity product_detail {
 
 entity product_history {
     index product: product_detail;
-    key event_id: byte_array = ("event_" + op_context.transaction.tx_rid.to_hex()).to_bytes();
+    key event_id: text = ("event_" + op_context.transaction.tx_rid.to_hex());
     message: text;
     // note: text;
     action: product_action_type;
@@ -29,8 +29,8 @@ entity product_history {
     transaction: transaction = op_context.transaction;
 }
 
-operation createProduct(operator: byte_array, targetAddress: byte_array, productId: text, message: text) {
-    op_context.is_signer(operator);
+operation createProduct(operator: text, targetAddress: text, productId: text, message: text) {
+    op_context.is_signer(operator.to_bytes());
     val operatorDetail = main.core.account.checkAddress(operator);
     val targetDetail = main.core.account.checkAddress(targetAddress);
     require(
@@ -39,8 +39,7 @@ operation createProduct(operator: byte_array, targetAddress: byte_array, product
             .logSpace
             .title + "[The targetAddress:" + targetDetail
             .address
-            .id
-            .to_hex() + " does not have WALLET role permissions]"
+            .id + " does not have WALLET role permissions]"
     );
 
     val productData = create product_detail (
@@ -59,12 +58,12 @@ operation createProduct(operator: byte_array, targetAddress: byte_array, product
 
 // 替換產品零件功能
 operation replaceProductAsset(
-    operator: byte_array,
+    operator: text,
     productId: text,
-    targetAssetId: byte_array,
-    newAssetId: byte_array
+    targetAssetId: text,
+    newAssetId: text
 ) {
-    op_context.is_signer(operator);
+    op_context.is_signer(operator.to_bytes());
     require(
         product_detail @? {
             .id == productId
@@ -142,7 +141,7 @@ operation replaceProductAsset(
         .action = main.core.asset.action_type.TRANSFER
     );
     create product_history ( //寫上產品新增資產紀錄
-        .event_id = ("event_" + op_context.transaction.tx_rid.to_hex() + "_1").to_bytes(),
+        .event_id = ("event_" + op_context.transaction.tx_rid.to_hex() + "_1"),
         .product = product,
         .message = 'add assetId: ' + newAsset.id,
         .action = product_action_type.UPDATE,
@@ -150,8 +149,8 @@ operation replaceProductAsset(
     );
 }
 
-operation trashedProduct(operator: byte_array, productId: text, message: text) {
-    op_context.is_signer(operator);
+operation trashedProduct(operator: text, productId: text, message: text) {
+    op_context.is_signer(operator.to_bytes());
 
     val operatorDetail = main.core.account.checkAddress(operator);
     require(
@@ -182,7 +181,7 @@ operation trashedProduct(operator: byte_array, productId: text, message: text) {
     );
 }
 
-// query getProductDetail(address: byte_array) {
+// query getProductDetail(address: text) {
 //     return product_detail@ { .owner.id == address }(
 //         id = .id,
 //         metaData = .nfts_meta,
@@ -197,7 +196,7 @@ query getProductOwner(productId: text) {
     ).to_gtv_pretty();
 }
 
-query getAssetDetailList(pubkey, type: text) {
+query getAssetDetailList(pubkey: text, type: text) {
     return main.core.asset.asset @* { .owner.id == pubkey, .type == main.core.asset.asset_type.value(type) } (
             id = .id,
             type = .type.name,
@@ -218,11 +217,11 @@ query getAssetListByProductId(productId: text) {
         ).to_gtv_pretty();
 }
 
-query getProductHistory(address: byte_array) {
+query getProductHistory(address: text) {
     val addrDetail = main.core.account.checkAddress(address);
     require(
         product_detail @? { .owner == addrDetail.address } != null,
-        logTile + "[Product for owner: " + addrDetail.address.id.to_hex() + " not found]"
+        logTile + "[Product for owner: " + addrDetail.address.id + " not found]"
     );
 
     return product_history @* { .product.owner == addrDetail.address } (
