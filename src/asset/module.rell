@@ -227,7 +227,7 @@ query getHistoryByAddress(address: text) {
 query getHistoryByAssetId(assetId: text) { // Return only the history of the asset.
     return history @* { .asset.id == assetId } (
         owner = .owner.id,
-        asset = .asset.id,
+        assetId = .asset.id,
         to = .to.id,
         action = .action,
         createdTime = .created_time,
