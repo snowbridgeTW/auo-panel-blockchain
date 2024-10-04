@@ -235,3 +235,14 @@ query getProductHistory(address: text) {
         blockRid = .transaction.block.block_rid
     );
 }
+
+query getProducts() {
+    log('Call getProducts');
+
+    return main.core.account.address_meta @* { .role == main.core.account.roles.WALLET } (
+            walletId = .address.id,
+            type = .role,
+            serialNumber = .desc,
+            createdTime = .created_time
+        );
+}
